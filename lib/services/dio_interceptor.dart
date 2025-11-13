@@ -4,26 +4,37 @@ import 'package:ootech/models/user_model.dart';
 import 'package:ootech/repositories/user_shared_preferences_repository.dart';
 
 class DioInterceptor extends Interceptor {
-  var user = UserModel();
+  final UserSharedPreferencesRepository _userSharedPreferencesRepository =
+      UserSharedPreferencesRepository();
+  UserModel? _user;
 
-  DioInterceptor() {
-    _initializeUser();
-  }
+  Future<UserModel?> _ensureUserLoaded() async {
+    if (_user != null) {
+      return _user;
+    }
 
-  _initializeUser() async {
     try {
-      user = await UserSharedPreferencesRepository().getUserSharedPreferences();
+      _user = await _userSharedPreferencesRepository.getUserSharedPreferences();
     } catch (e) {
       debugPrint("Erro ao carregar usuário: $e");
-      user = UserModel(); // Fallback para usuário vazio
+      _user = UserModel();
     }
+
+    return _user;
   }
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if (user.hash != null) {
-      options.headers["Token-User"] = user.hash;
+  Future<void> onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    final user = await _ensureUserLoaded();
+    final token = user?.hash;
+
+    if (token != null && token.isNotEmpty) {
+      options.headers["Token-User"] = token;
     }
+
     debugPrint("INTERCEPTOR HEADERS ${options.headers}");
     debugPrint("INTERCEPTOR PATH ${options.path}");
     debugPrint("INTERCEPTOR URI ${options.uri}");

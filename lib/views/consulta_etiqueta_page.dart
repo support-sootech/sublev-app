@@ -48,32 +48,50 @@ class _ConsultaEtiquetaPageState extends State<ConsultaEtiquetaPage> {
     required String codigo,
     bool fgOpenScannerModal = true,
   }) async {
-    if (formKey.currentState?.validate() != null) {
-      formKey.currentState?.save();
-      try {
-        if (codigoTextController.text.isNotEmpty) {
-          FocusScope.of(context).requestFocus(FocusNode());
-          await etiquetaController.loadEtiqueta(codigo: codigo);
+    final codigoParametro = codigo.trim();
+    if (codigoParametro.isNotEmpty) {
+      codigoTextController.text = codigoParametro;
+    }
 
-          if (fgOpenScannerModal) {
-            _openScannerModal();
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Center(child: Text(e.toString())),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+    if (!(formKey.currentState?.validate() ?? false)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Center(child: Text("Você deve informar o código")),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-    } else {
+      return;
+    }
+
+    formKey.currentState?.save();
+    final codigoBusca = codigoTextController.text.trim();
+
+    if (codigoBusca.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Center(child: Text("Você deve informar o código")),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      FocusScope.of(context).requestFocus(FocusNode());
+      await etiquetaController.loadEtiqueta(codigo: codigoBusca);
+
+      if (fgOpenScannerModal) {
+        _openScannerModal();
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Center(child: Text("Você deve informar o código")),
+            content: Center(child: Text(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -179,7 +197,7 @@ class _ConsultaEtiquetaPageState extends State<ConsultaEtiquetaPage> {
       etiquetaController
           .baixaDescarteMaterialFracionado(
             status: status,
-            motivo: motivoDescarteTextController.text,
+            motivo: motivoDescarteTextController.text.trim(),
           )
           .then((bool value) {
             if (value) {
@@ -305,7 +323,7 @@ class _ConsultaEtiquetaPageState extends State<ConsultaEtiquetaPage> {
             ),
             ElevatedButton.icon(
               onPressed: () {
-                if (motivoDescarteTextController.text.isEmpty) {
+                if (motivoDescarteTextController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Center(
@@ -368,7 +386,8 @@ class _ConsultaEtiquetaPageState extends State<ConsultaEtiquetaPage> {
                             return null;
                           },
                           onSaved: (newValue) {
-                            codigoTextController.text = newValue!;
+                            codigoTextController.text =
+                                newValue?.trim() ?? "";
                           },
                         ),
                         SizedBox(height: 8),

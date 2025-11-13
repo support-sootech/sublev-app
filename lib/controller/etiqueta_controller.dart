@@ -22,7 +22,7 @@ class EtiquetaController extends GetxController {
 
   final _msgError = "".obs;
   Rx<String> get getMsgError => _msgError;
-  set setGetMsgError(String msg) => msg;
+  set setGetMsgError(String msg) => _msgError.value = msg;
 
   Future<EtiquetaModel> loadEtiqueta({required String codigo}) async {
     setState = EtiquetaState.loading;
@@ -81,21 +81,22 @@ class EtiquetaController extends GetxController {
   }) async {
     try {
       setState = EtiquetaState.loading;
-      _listaEtiquetasSelecionadas.forEach((e) {
-        materialFracionadoRepository
-            .baixaDescarteMaterialFracionado(
-              idMateriaisFracionados: e.idMateriaisFracionados!,
-              status: status,
-              motivo: motivo,
-            )
-            .then((_) {
-              _listaEtiquetasSelecionadas.remove(e);
-              _listaEtiquetasSelecionadas.refresh();
-            });
-      });
+
+      final etiquetas = List<EtiquetaModel>.from(_listaEtiquetasSelecionadas);
+      for (final etiqueta in etiquetas) {
+        await materialFracionadoRepository.baixaDescarteMaterialFracionado(
+          idMateriaisFracionados: etiqueta.idMateriaisFracionados!,
+          status: status,
+          motivo: motivo,
+        );
+        _listaEtiquetasSelecionadas.remove(etiqueta);
+      }
+
+      _listaEtiquetasSelecionadas.refresh();
       setState = EtiquetaState.success;
       return true;
     } catch (e) {
+      setState = EtiquetaState.error;
       throw CustomException(message: e.toString());
     }
   }
