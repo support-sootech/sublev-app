@@ -27,15 +27,13 @@ class _HomePageState extends State<HomePage> {
   final MenuData menuData = MenuData();
   late List<MenuModel> arrMenu = [];
 
-  late MaterialFracionadoVencimentoController
-  materialFracionadoVencimentoController =
+  late MaterialFracionadoVencimentoController materialFracionadoVencimentoController =
       MaterialFracionadoVencimentoController();
   bool isLoadingMateriaisFracionadosVencimento = true;
   late MaterialFracionadoVencimentoModel materialFracionadoVencimentoModel;
 
   Future loadUser() async {
-    userModel = await userSharedPreferencesRepository
-        .getUserSharedPreferences();
+    userModel = await userSharedPreferencesRepository.getUserSharedPreferences();
     setState(() {});
   }
 
@@ -48,8 +46,7 @@ class _HomePageState extends State<HomePage> {
     isLoadingMateriaisFracionadosVencimento = true;
     setState(() {});
     materialFracionadoVencimentoModel =
-        await materialFracionadoVencimentoController
-            .loadMaterialFracionadoVencimento();
+        await materialFracionadoVencimentoController.loadMaterialFracionadoVencimento();
     setState(() => isLoadingMateriaisFracionadosVencimento = false);
   }
 
@@ -57,8 +54,7 @@ class _HomePageState extends State<HomePage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            MateriaisFracionadosVencimentoListaPage(filtro: filtro),
+        builder: (context) => MateriaisFracionadosVencimentoListaPage(filtro: filtro),
       ),
     );
   }
@@ -71,8 +67,55 @@ class _HomePageState extends State<HomePage> {
     loadMaterialFracionadoVencimento();
   }
 
+  MenuModel? _findMenuById(int id) {
+    try {
+      return arrMenu.firstWhere((m) => m.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Card idêntico ao seu padrão de atalhos
+  Widget _menuCard(MenuModel m) {
+    return InkWell(
+      onTap: () {
+        if (m.page != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => m.page!));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Atalho "${m.title ?? 'Sem título'}" não configurado')),
+          );
+        }
+      },
+      child: Card(
+        elevation: 8,
+        color: Colors.grey[200],
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(m.icon ?? Icons.apps),
+            FittedBox(child: Text(m.title ?? '')),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 4 atalhos rápidos = ids 1..4 do menu
+    final quickIds = <int>{1, 2, 3, 4};
+    final quickItems = <MenuModel>[
+      if (_findMenuById(1) != null) _findMenuById(1)!,
+      if (_findMenuById(2) != null) _findMenuById(2)!,
+      if (_findMenuById(3) != null) _findMenuById(3)!,
+      if (_findMenuById(4) != null) _findMenuById(4)!,
+    ];
+
+    // outros atalhos (se no futuro o menu crescer, ficam aqui)
+    final outrosAtalhos =
+        arrMenu.where((m) => !(quickIds.contains(m.id ?? -1))).toList();
+
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
@@ -83,7 +126,7 @@ class _HomePageState extends State<HomePage> {
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
@@ -96,9 +139,10 @@ class _HomePageState extends State<HomePage> {
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
+                      // --------- Atalhos rápidos (2x2 do próprio menu) ----------
                       SizedBox(
                         width: MediaQuery.of(context).size.width,
-                        child: Text(
+                        child: const Text(
                           "Atalhos rápidos",
                           style: TextStyle(
                             fontSize: 16,
@@ -107,45 +151,54 @@ class _HomePageState extends State<HomePage> {
                           textAlign: TextAlign.start,
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       GridView.builder(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.3,
                         ),
-                        itemCount: arrMenu.length,
+                        itemCount: quickItems.length,
                         shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, index) {
-                          MenuModel menuModel = arrMenu[index];
-                          return InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => menuModel.page!,
-                                ),
-                              );
-                            },
-                            child: Card(
-                              elevation: 8,
-                              color: Colors.grey[200],
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(menuModel.icon),
-                                  FittedBox(child: Text(menuModel.title!)),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemBuilder: (context, index) => _menuCard(quickItems[index]),
                       ),
-                      SizedBox(height: 8),
+
+                      const SizedBox(height: 8),
+
+                      // --------- Outros atalhos (se houver) ----------
+                      if (outrosAtalhos.isNotEmpty) ...[
+                        SizedBox(
+                          width: MediaQuery.of(context).size.width,
+                          child: const Text(
+                            "Outros atalhos",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.start,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                          ),
+                          itemCount: outrosAtalhos.length,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemBuilder: (context, index) => _menuCard(outrosAtalhos[index]),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // --------- Materiais Fracionados (inalterado) ----------
                       SizedBox(
                         width: MediaQuery.of(context).size.width,
                         child: Row(
                           children: [
-                            Text(
+                            const Text(
                               "Materiais Fracionados",
                               style: TextStyle(
                                 fontSize: 16,
@@ -157,7 +210,7 @@ class _HomePageState extends State<HomePage> {
                               onPressed: () async {
                                 loadMaterialFracionadoVencimento();
                               },
-                              icon: Icon(Icons.refresh),
+                              icon: const Icon(Icons.refresh),
                             ),
                           ],
                         ),
@@ -172,14 +225,14 @@ class _HomePageState extends State<HomePage> {
                                   cardColor: Colors.red,
                                   icon: FontAwesomeIcons.fireFlameCurved,
                                   qtd: isLoadingMateriaisFracionadosVencimento
-                                      ? Center(
+                                      ? const Center(
                                           child: CircularProgressIndicator(
                                             color: Colors.white,
                                           ),
                                         )
                                       : Text(
                                           "${materialFracionadoVencimentoModel.vencemHoje ?? 0}",
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 26,
                                             color: Colors.white,
                                           ),
@@ -187,24 +240,23 @@ class _HomePageState extends State<HomePage> {
                                   descricao: "Hoje",
                                   onTap: () =>
                                       navigatorMateriaisFracionadosVencimentoPage(
-                                        filtro:
-                                            AcaoMateriaisFracionadoVencimento
-                                                .vencem_hoje
-                                                .toStringAcao,
-                                      ),
+                                    filtro: AcaoMateriaisFracionadoVencimento
+                                        .vencem_hoje
+                                        .toStringAcao,
+                                  ),
                                 ),
                                 CardInfoWidget(
                                   cardColor: Colors.orange,
                                   icon: Icons.report_problem_outlined,
                                   qtd: isLoadingMateriaisFracionadosVencimento
-                                      ? Center(
+                                      ? const Center(
                                           child: CircularProgressIndicator(
                                             color: Colors.white,
                                           ),
                                         )
                                       : Text(
                                           "${materialFracionadoVencimentoModel.vencemAmanha ?? 0}",
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 26,
                                             color: Colors.white,
                                           ),
@@ -212,11 +264,10 @@ class _HomePageState extends State<HomePage> {
                                   descricao: "Amanhã",
                                   onTap: () =>
                                       navigatorMateriaisFracionadosVencimentoPage(
-                                        filtro:
-                                            AcaoMateriaisFracionadoVencimento
-                                                .vencem_amanha
-                                                .toStringAcao,
-                                      ),
+                                    filtro: AcaoMateriaisFracionadoVencimento
+                                        .vencem_amanha
+                                        .toStringAcao,
+                                  ),
                                 ),
                               ],
                             ),
@@ -226,14 +277,14 @@ class _HomePageState extends State<HomePage> {
                                   cardColor: Colors.blue,
                                   icon: Icons.calendar_today_outlined,
                                   qtd: isLoadingMateriaisFracionadosVencimento
-                                      ? Center(
+                                      ? const Center(
                                           child: CircularProgressIndicator(
                                             color: Colors.white,
                                           ),
                                         )
                                       : Text(
                                           "${materialFracionadoVencimentoModel.vencemSemana ?? 0}",
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 26,
                                             color: Colors.white,
                                           ),
@@ -241,24 +292,23 @@ class _HomePageState extends State<HomePage> {
                                   descricao: "Em 7 dias",
                                   onTap: () =>
                                       navigatorMateriaisFracionadosVencimentoPage(
-                                        filtro:
-                                            AcaoMateriaisFracionadoVencimento
-                                                .vencem_semana
-                                                .toStringAcao,
-                                      ),
+                                    filtro: AcaoMateriaisFracionadoVencimento
+                                        .vencem_semana
+                                        .toStringAcao,
+                                  ),
                                 ),
                                 CardInfoWidget(
                                   cardColor: Colors.green,
                                   icon: Icons.calendar_month_outlined,
                                   qtd: isLoadingMateriaisFracionadosVencimento
-                                      ? Center(
+                                      ? const Center(
                                           child: CircularProgressIndicator(
                                             color: Colors.white,
                                           ),
                                         )
                                       : Text(
                                           "${materialFracionadoVencimentoModel.vencemMais1Semana ?? 0}",
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 26,
                                             color: Colors.white,
                                           ),
@@ -266,11 +316,10 @@ class _HomePageState extends State<HomePage> {
                                   descricao: "Acima de 7 dias",
                                   onTap: () =>
                                       navigatorMateriaisFracionadosVencimentoPage(
-                                        filtro:
-                                            AcaoMateriaisFracionadoVencimento
-                                                .vencem_mais_1_semana
-                                                .toStringAcao,
-                                      ),
+                                    filtro: AcaoMateriaisFracionadoVencimento
+                                        .vencem_mais_1_semana
+                                        .toStringAcao,
+                                  ),
                                 ),
                               ],
                             ),

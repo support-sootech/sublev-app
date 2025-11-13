@@ -24,6 +24,15 @@ class DioInterceptor extends Interceptor {
     if (user.hash != null) {
       options.headers["Token-User"] = user.hash;
     }
+
+    // id da empresa (header que o backend lê como fallback de sessão)
+    if (user.idEmpresas != null) {
+      options.headers["X-Company-Id"] = user.idEmpresas.toString();
+    }
+
+    options.headers.putIfAbsent("Accept", () => "application/json");
+    options.headers.putIfAbsent("Content-Type", () => "application/json");
+
     debugPrint("INTERCEPTOR HEADERS ${options.headers}");
     debugPrint("INTERCEPTOR PATH ${options.path}");
     debugPrint("INTERCEPTOR URI ${options.uri}");
