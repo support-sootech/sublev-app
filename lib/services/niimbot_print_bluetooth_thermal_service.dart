@@ -239,14 +239,14 @@ class NiimbotPrintBluetoothThermalService {
       final List<int> outBytes = bytes.toList();
       final requestedDensity = overrideDensity ?? _currentDensity;
       final int logicalDensity = requestedDensity.clamp(1, 9); // expansão lógica
-      int pluginDensity = logicalDensity; // tentar enviar direto (forçar >5)
-      if (pluginDensity < 1) pluginDensity = 1;
+      // Nunca envie pluginDensity > 5 — plugin nativo aceita 1..5.
+      int pluginDensity = logicalDensity > 5 ? 5 : logicalDensity;
       final int extraPasses = simulateMultiPassForDensity && logicalDensity > 5 ? logicalDensity - 5 : 0; // só gera passes se flag ativa
       if (requestedDensity != logicalDensity) {
         debugPrint('[PRINT][ajuste] densidade solicitada=$requestedDensity normalizada=$logicalDensity (1..9)');
       }
-      if (pluginDensity > 5) {
-        debugPrint('[PRINT][aviso] tentando enviar densidade acima de 5 (=$pluginDensity). Fallback para 5 se falhar.');
+      if (logicalDensity > 5) {
+        debugPrint('[PRINT][aviso] densidade lógica acima de 5 (=$logicalDensity). Enviando pluginDensity=5 e usando $extraPasses pass(es) adicionais se simulateMultiPassForDensity=true.');
       }
       debugPrint('[PRINT] inicio etiqueta w=${toSend.width} h=${toSend.height} densidadeLogica=$logicalDensity densidadePlugin=$pluginDensity passesExtra=$extraPasses multiPass=${simulateMultiPassForDensity ? 'on' : 'off'} rgba=true resize=${forceResize ? 'sim' : 'nao'}');
       Map<String, dynamic> dadosImagem = {
@@ -278,20 +278,9 @@ class NiimbotPrintBluetoothThermalService {
         try {
           passResult = await _niimbotLabelPrinterPlugin.send(PrintData.fromMap(dadosImagem));
         } catch (eSend) {
-          if (pluginDensity > 5) {
-            debugPrint('[PRINT][fallback] falha densidade=$pluginDensity erro=$eSend -> tentando densidade=5');
-            pluginDensity = 5;
-            dadosImagem['density'] = 5;
-            try {
-              passResult = await _niimbotLabelPrinterPlugin.send(PrintData.fromMap(dadosImagem));
-            } catch (eSend2) {
-              debugPrint('[PRINT][erro] fallback densidade=5 também falhou: $eSend2');
-              passResult = false;
-            }
-          } else {
-            debugPrint('[PRINT][erro] envio falhou densidade=$pluginDensity: $eSend');
-            passResult = false;
-          }
+          // Já garantimos pluginDensity<=5 — em caso de erro apenas logamos e não tentamos valores inválidos.
+          debugPrint('[PRINT][fallback] envio falhou densidade=$pluginDensity erro=$eSend');
+          passResult = false;
         }
         debugPrint('[PRINT] fim etiqueta pass=$pass/$totalPasses sucesso=$passResult densidadeUsada=${dadosImagem['density']} overstrike=$overstrike');
         if (!passResult) overallSuccess = false;
@@ -411,14 +400,14 @@ class NiimbotPrintBluetoothThermalService {
       final List<int> outBytes = bytes.toList();
       final requestedDensity = overrideDensity ?? _currentDensity;
       final int logicalDensity = requestedDensity.clamp(1, 9);
-      int pluginDensity = logicalDensity;
-      if (pluginDensity < 1) pluginDensity = 1;
+      // Nunca envie pluginDensity > 5 — plugin nativo aceita 1..5.
+      int pluginDensity = logicalDensity > 5 ? 5 : logicalDensity;
       final int extraPasses = logicalDensity > 5 ? logicalDensity - 5 : 0;
       if (requestedDensity != logicalDensity) {
         debugPrint('[PRINT][ajuste] (logo) densidade solicitada=$requestedDensity normalizada=$logicalDensity');
       }
-      if (pluginDensity > 5) {
-        debugPrint('[PRINT][aviso] (logo) tentando densidade acima de 5 (=$pluginDensity). Fallback se falhar.');
+      if (logicalDensity > 5) {
+        debugPrint('[PRINT][aviso] (logo) densidade lógica acima de 5 (=$logicalDensity). Enviando pluginDensity=5 e usando $extraPasses pass(es) adicionais.');
       }
       Map<String, dynamic> dadosImagem = {
         'bytes': outBytes,
@@ -436,20 +425,8 @@ class NiimbotPrintBluetoothThermalService {
         try {
           passResult = await _niimbotLabelPrinterPlugin.send(PrintData.fromMap(dadosImagem));
         } catch (eSendLogo) {
-          if (pluginDensity > 5) {
-            debugPrint('[PRINT][fallback] (logo) falha densidade=$pluginDensity erro=$eSendLogo -> tentando 5');
-            pluginDensity = 5;
-            dadosImagem['density'] = 5;
-            try {
-              passResult = await _niimbotLabelPrinterPlugin.send(PrintData.fromMap(dadosImagem));
-            } catch (eSendLogo2) {
-              debugPrint('[PRINT][erro] (logo) fallback densidade=5 falhou: $eSendLogo2');
-              passResult = false;
-            }
-          } else {
-            debugPrint('[PRINT][erro] (logo) envio falhou densidade=$pluginDensity: $eSendLogo');
-            passResult = false;
-          }
+          debugPrint('[PRINT][erro] (logo) envio falhou densidade=$pluginDensity: $eSendLogo');
+          passResult = false;
         }
         debugPrint('[PRINT] teste logo pass=$pass/$totalPasses densidadeUsada=${dadosImagem['density']} sucesso=$passResult');
         if (!passResult) overallSuccess = false;
