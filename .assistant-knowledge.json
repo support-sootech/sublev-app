@@ -1,0 +1,14 @@
+{
+  "ui": {
+    "menu_button_childAspectRatio": 1.05,
+    "quick_menu_crossAxisCount": 2,
+    "outros_menu_crossAxisCount": 3,
+    "menu_button_style": "Card with Icon + Label, elevation 8, background #eee",
+    "menu_button_text_case": "Title Case",
+    "menu_button_labels_source": "use same labels as web app"
+  },
+  "language": {
+    "default": "pt-BR",
+    "comments": "pt-BR"
+  }
+}

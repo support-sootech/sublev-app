@@ -1,0 +1,276 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:ootech/repositories/materiais_repository.dart';
+import 'package:ootech/views/entrada_materiais_page.dart';
+import 'package:ootech/views/widgets/home/app_bar_linear_gradient_widget.dart';
+
+class MateriaisListPage extends StatefulWidget {
+  const MateriaisListPage({super.key});
+
+  @override
+  State<MateriaisListPage> createState() => _MateriaisListPageState();
+}
+
+class _MateriaisListPageState extends State<MateriaisListPage> {
+  final MateriaisRepository _repo = MateriaisRepository();
+  bool _loading = true;
+  final List<Map<String, dynamic>> _allItems = [];
+  final List<Map<String, dynamic>> _visibleItems = [];
+  static const int _pageSize = 30;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  final ScrollController _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(_onScroll);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final materiais = await _repo.listar();
+      _allItems
+        ..clear()
+        ..addAll(materiais.map((m) => m.toJson()));
+      _visibleItems
+        ..clear()
+        ..addAll(_allItems.take(_pageSize));
+      _hasMore = _allItems.length > _visibleItems.length;
+    } catch (e) {
+      if (kDebugMode) debugPrint('Erro ao carregar materiais: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao carregar materiais: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients || _loadingMore || !_hasMore) return;
+    final pos = _scrollCtrl.position;
+    if (pos.pixels >= pos.maxScrollExtent - 250) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    await Future.delayed(const Duration(milliseconds: 150));
+    final current = _visibleItems.length;
+    final nextSlice = _allItems.skip(current).take(_pageSize).toList();
+    _visibleItems.addAll(nextSlice);
+    _hasMore = _visibleItems.length < _allItems.length;
+    if (mounted) setState(() => _loadingMore = false);
+  }
+
+  Future<void> _refresh() async {
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Entrada de Materiais', style: TextStyle(fontSize: 20)),
+          flexibleSpace: AppBarLinearGradientWidget(),
+          leading: IconButton(
+              icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+          actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh)],
+        ),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _visibleItems.isEmpty
+                ? const Center(child: Text('Nenhum material encontrado'))
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView.builder(
+                      controller: _scrollCtrl,
+                      itemCount: _visibleItems.length + (_hasMore ? 1 : 0),
+                      itemBuilder: (context, idx) {
+                        if (idx >= _visibleItems.length) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: _loadingMore
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Text('Carregar mais...'),
+                            ),
+                          );
+                        }
+                        final it = _visibleItems[idx];
+                        final id = it['id_materiais'] ?? it['id'] ?? 0;
+                        final descricao = (it['descricao'] ?? '').toString();
+                        final cod = (it['cod_barras'] ?? '').toString();
+                        final quantidade = (it['quantidade'] ?? '').toString();
+                        final estoqueLabel = quantidade.isEmpty ? '—' : quantidade;
+                        final marca = (it['marca'] ?? '').toString();
+                        final marcaLabel = marca.isEmpty ? '—' : marca;
+                        final fornecedor = (it['nm_fornecedor'] ?? '').toString();
+                        final fabricante = (it['nm_fabricante'] ?? '').toString();
+                        final fornecedorLabel = fornecedor.isEmpty ? '—' : fornecedor;
+                        final fabricanteLabel = fabricante.isEmpty ? '—' : fabricante;
+                        final status = (it['status'] ?? '').toString();
+                        final statusLabel = status.isEmpty ? '—' : status;
+
+                        Color statusColor;
+                        switch (status) {
+                          case 'A':
+                            statusColor = Colors.green.shade600;
+                            break;
+                          case 'D':
+                            statusColor = Colors.red.shade600;
+                            break;
+                          default:
+                            statusColor = Colors.grey;
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        descricao,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Wrap(
+                                      spacing: 4,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Editar',
+                                          icon: const Icon(Icons.edit_outlined),
+                                          onPressed: () async {
+                                            await Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => EntradaMateriaisPage(
+                                                    materialId: int.tryParse(id.toString())),
+                                              ),
+                                            );
+                                            _refresh();
+                                          },
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Excluir',
+                                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                          onPressed: () => _confirmDelete(id, descricao),
+                                        ),
+                                      ],
+                                    )
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Código de Barras: ${cod.isEmpty ? '—' : cod}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Qtd. Estoque: $estoqueLabel',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                const SizedBox(height: 2),
+                                Text('Marca: $marcaLabel', style: const TextStyle(fontSize: 13)),
+                                const SizedBox(height: 2),
+                                Text('Fabricante: $fabricanteLabel', style: const TextStyle(fontSize: 13)),
+                                const SizedBox(height: 2),
+                                Text('Fornecedor: $fornecedorLabel', style: const TextStyle(fontSize: 13)),
+                                const SizedBox(height: 6),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withOpacity(.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: statusColor.withOpacity(.4)),
+                                    ),
+                                    child: Text(
+                                      statusLabel == 'A'
+                                          ? 'Ativo'
+                                          : (statusLabel == 'D' ? 'Inativo' : statusLabel),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: statusColor,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            await Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const EntradaMateriaisPage()));
+            await _refresh();
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Novo'),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(int id, String descricao) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar exclusão'),
+        content: Text('Deseja realmente excluir o material "$descricao"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Excluir')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final sucesso = await _repo.deletar(id);
+      if (sucesso) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Material excluído')));
+        }
+        await _refresh();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao excluir: $e')));
+      }
+    }
+  }
+}

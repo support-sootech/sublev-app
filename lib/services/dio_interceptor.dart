@@ -5,12 +5,13 @@ import 'package:ootech/repositories/user_shared_preferences_repository.dart';
 
 class DioInterceptor extends Interceptor {
   var user = UserModel();
+  Future<void>? _loadingUser;
 
   DioInterceptor() {
-    _initializeUser();
+    _loadingUser = _initializeUser();
   }
 
-  _initializeUser() async {
+  Future<void> _initializeUser() async {
     try {
       user = await UserSharedPreferencesRepository().getUserSharedPreferences();
     } catch (e) {
@@ -19,10 +20,27 @@ class DioInterceptor extends Interceptor {
     }
   }
 
+  Future<void> _ensureUserLoaded() async {
+    if (_loadingUser != null) {
+      await _loadingUser;
+      _loadingUser = null;
+    }
+    if (user.hash == null && user.idEmpresas == null) {
+      _loadingUser = _initializeUser();
+      await _loadingUser;
+      _loadingUser = null;
+    }
+  }
+
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if (user.hash != null) {
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    await _ensureUserLoaded();
+    if (user.hash != null && user.hash!.isNotEmpty) {
       options.headers["Token-User"] = user.hash;
+    }
+    final empresaId = user.idEmpresas?.toString();
+    if (empresaId != null && empresaId.isNotEmpty && empresaId != "0") {
+      options.headers["X-Company-Id"] = empresaId;
     }
     debugPrint("INTERCEPTOR HEADERS ${options.headers}");
     debugPrint("INTERCEPTOR PATH ${options.path}");

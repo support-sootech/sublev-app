@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:ootech/config/custom_exception.dart';
 import 'package:ootech/models/etiqueta_model.dart';
 import 'package:ootech/models/material_model.dart';
+import 'package:ootech/models/material_vencimento_count.dart'; // legado (counts endpoint atual)
+import 'package:ootech/models/vencimento_detalhe.dart';
 import 'package:ootech/repositories/material_repository.dart';
 
 class MaterialController extends GetxController {
@@ -18,6 +20,32 @@ class MaterialController extends GetxController {
   final _listaEtiquetasFracionadas = <EtiquetaModel>[].obs;
   RxList<EtiquetaModel> get getListaEtiquetasFracionadas =>
       _listaEtiquetasFracionadas;
+
+  // Contagens de vencimento vindas do backend
+  final _vencimentoCount = Rx<MaterialVencimentoCount?>(null);
+  Rx<MaterialVencimentoCount?> get getVencimentoCount => _vencimentoCount;
+
+  final _vencimentoDetalhe = Rx<VencimentoDetalhe?>(null);
+  Rx<VencimentoDetalhe?> get getVencimentoDetalhe => _vencimentoDetalhe;
+
+  Future<void> fetchVencimentoCounts() async {
+    try {
+      final counts = await materialRepository.loadVencimentoCounts();
+      _vencimentoCount.value = counts;
+    } catch (_) {
+      // Silencia falha para fallback local
+      _vencimentoCount.value = null;
+    }
+  }
+
+  Future<void> fetchVencimentoDetalhe({String scope = 'all', bool includeList = false}) async {
+    try {
+      final detalhe = await materialRepository.loadVencimentoDetalhe(scope: scope, includeList: includeList);
+      _vencimentoDetalhe.value = detalhe;
+    } catch (_) {
+      _vencimentoDetalhe.value = null;
+    }
+  }
 
   Future buscarMaterial({required String filtro}) async {
     setState = MaterialBuscaState.loading;

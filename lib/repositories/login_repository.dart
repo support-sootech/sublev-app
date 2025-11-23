@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/rendering.dart';
 import 'package:ootech/config/custom_exception.dart';
+import 'package:ootech/config/handle_dio_error.dart';
 import 'package:ootech/models/user_model.dart';
 import 'package:ootech/repositories/user_shared_preferences_repository.dart';
 import 'package:ootech/services/dio_custom.dart';
@@ -41,12 +40,7 @@ class LoginRepository {
       }
     } on DioException catch (dioErr) {
       debugPrint("REPOSITORY ERROR 1: ${dioErr.toString()}");
-      try {
-        Map<String, dynamic> json = jsonDecode(dioErr.response.toString());
-        throw CustomException(message: json['msg']);
-      } catch (e) {
-        throw CustomException(message: dioErr.error.toString());
-      }
+      throw CustomException(message: handleDioError(dioErr));
     } catch (e) {
       debugPrint("REPOSITORY ERROR 2: ${e.toString()}");
       throw CustomException(message: e.toString());

@@ -108,37 +108,53 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       SizedBox(height: 8),
-                      GridView.builder(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                        ),
-                        itemCount: arrMenu.length,
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, index) {
-                          MenuModel menuModel = arrMenu[index];
-                          return InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => menuModel.page!,
+                      // Layout responsivo dos atalhos: usa Wrap para permitir quebra natural
+                      // e padroniza o card para comportar títulos maiores sem estourar.
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.start,
+                        children: arrMenu.map((menuModel) {
+                          return SizedBox(
+                            width: (MediaQuery.of(context).size.width - 8*2 - 16) / 2, // 2 colunas responsivas
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => menuModel.page!,
+                                  ),
+                                );
+                              },
+                              child: Card(
+                                elevation: 6,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              );
-                            },
-                            child: Card(
-                              elevation: 8,
-                              color: Colors.grey[200],
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(menuModel.icon),
-                                  FittedBox(child: Text(menuModel.title!)),
-                                ],
+                                color: Colors.grey[200],
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(menuModel.icon, size: 28, color: Colors.blueGrey[700]),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        menuModel.title!,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           );
-                        },
+                        }).toList(),
                       ),
                       SizedBox(height: 8),
                       SizedBox(

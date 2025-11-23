@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:ootech/config/custom_exception.dart';
+import 'package:ootech/config/handle_dio_error.dart';
 import 'package:ootech/models/etiqueta_model.dart';
 import 'package:ootech/models/material_fracionado_vencimento_model.dart';
 import 'package:ootech/repositories/user_shared_preferences_repository.dart';
@@ -35,10 +35,7 @@ class MaterialFracionadoRepository {
       }
       return materialFracionadoVencimentoModel;
     } on DioException catch (dioErr) {
-      Map<String, dynamic> json = jsonDecode(dioErr.response.toString());
-      throw CustomException(message: json['msg']);
-    } on ErrorInterceptorHandler catch (errorInterceptor) {
-      throw CustomException(message: errorInterceptor.toString());
+      throw CustomException(message: handleDioError(dioErr));
     } catch (e) {
       throw CustomException(message: e.toString());
     }
@@ -70,10 +67,7 @@ class MaterialFracionadoRepository {
         throw CustomException(message: response.data['msg']);
       }
     } on DioException catch (dioErr) {
-      Map<String, dynamic> json = jsonDecode(dioErr.response.toString());
-      throw CustomException(message: json['msg']);
-    } on ErrorInterceptorHandler catch (errorInterceptor) {
-      throw CustomException(message: errorInterceptor.toString());
+      throw CustomException(message: handleDioError(dioErr));
     } catch (e) {
       throw CustomException(message: e.toString());
     }
@@ -102,10 +96,7 @@ class MaterialFracionadoRepository {
       }
       return arr;
     } on DioException catch (dioErr) {
-      Map<String, dynamic> json = jsonDecode(dioErr.response.toString());
-      throw CustomException(message: json['msg']);
-    } on ErrorInterceptorHandler catch (errorInterceptor) {
-      throw CustomException(message: errorInterceptor.toString());
+      throw CustomException(message: handleDioError(dioErr));
     } catch (e) {
       throw CustomException(message: e.toString());
     }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:ootech/models/menu_model.dart';
 import 'package:ootech/views/consulta_etiqueta_page.dart';
+import 'package:ootech/views/etiqueta_avulsa_page.dart';
 import 'package:ootech/views/etiquetas_page.dart';
 import 'package:ootech/views/fracionar_page.dart';
+import 'package:ootech/views/materiais_list_page.dart';
 
 class MenuData {
   Future<List<MenuModel>> loadMenu() async {
@@ -30,6 +32,24 @@ class MenuData {
         title: "Etiquetas",
         page: EtiquetasPage(),
         icon: Icons.print_outlined,
+      ),
+    );
+
+    menu.add(
+      MenuModel(
+        id: 4,
+        title: "Etiqueta avulsa",
+        page: const EtiquetaAvulsaPage(),
+        icon: Icons.label_outline,
+      ),
+    );
+
+    menu.add(
+      MenuModel(
+        id: 5,
+        title: "Entrada de Materiais",
+        page: MateriaisListPage(),
+        icon: Icons.input_outlined,
       ),
     );
 

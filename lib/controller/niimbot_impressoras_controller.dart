@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:niimbot_label_printer/niimbot_label_printer.dart';
@@ -11,9 +12,23 @@ import 'package:ootech/config/custom_exception.dart';
 import 'package:ootech/config/functions_global.dart';
 import 'package:ootech/services/niimbot_print_bluetooth_thermal_service.dart';
 
+// Enum padronizado de estado de conexão da impressora usado pelas telas
+enum PrinterConnectionState { disconnected, connecting, connected }
+
+// Tipos padronizados de snackbar (mover para topo para uso global)
+enum SnackBarType { queue, success, error, info }
+
 class NiimbotImpressorasController extends GetxController {
   NiimbotPrintBluetoothThermalService printService =
       NiimbotPrintBluetoothThermalService();
+
+  // Instrumentação para diagnosticar duplicação de snackbars.
+  int _snackbarSeq = 0; // contador incremental
+  DateTime? _lastSnackbarAt;
+  String? _lastSnackbarSignature; // combina type+message
+  static const Duration _dedupeWindow = Duration(seconds: 3);
+
+  // Removido warmup global; teste é executado em cada conexão conforme solicitação.
 
   final _statusListaImpressoras = StatusListaImpressoras.loading.obs;
   Rx<StatusListaImpressoras> get getStatusListaImpressoras =>
@@ -36,10 +51,16 @@ class NiimbotImpressorasController extends GetxController {
     debugPrint("SET SIZE LABEL PRINT: ${sizeLabelPrint.toString()}");
   }
 
-  // Fila para armazenar as etiquetas
+  // Estado da conexão (compatível com telas que exibem ícones de status)
+  final _printerConnectionState = PrinterConnectionState.disconnected.obs;
+  Rx<PrinterConnectionState> get getPrinterConnectionState => _printerConnectionState;
+
+  // Fila e flags de processamento
   final Queue<ui.Image> _printQueue = Queue<ui.Image>();
-  // Controla a fila está sendo processada
-  bool _isProcessingQueue = false;
+  bool _isProcessingQueue = false; // se está enviando atualmente
+  final _processingQueue = false.obs; // exposto para overlays
+  RxBool get getIsProcessingQueue => _processingQueue;
+  bool _connectionWarmupDone = false; // ficará true somente após teste de conexão
 
   //_printQueue.clear();
 
@@ -57,8 +78,14 @@ class NiimbotImpressorasController extends GetxController {
     //_pixelRatio.refresh();
   }
 
-  Future<bool> isBbluetoothEnabled() async {
+  // Verifica se o bluetooth do aparelho está habilitado
+  Future<bool> isBluetoothEnabled() async {
     return await printService.isBbluetoothEnabled();
+  }
+
+  // Alias para compatibilidade com telas antigas que usam o nome errado
+  Future<bool> isBbluetoothEnabled() async {
+    return isBluetoothEnabled();
   }
 
   Future<void> loadImpressoras() async {
@@ -69,53 +96,152 @@ class NiimbotImpressorasController extends GetxController {
 
   Future<bool> connectDevices({required BluetoothDevice device}) async {
     debugPrint("CONTROLLER CONNECTDEVICES: ${device.name}");
-
     try {
-      bool fg = await printService.connectDevices(
-        device: device,
-        sizeLabelPrint: _sizeLabelPrint.value,
-      );
-      if (fg) {
-        _impressoraConectada.value = device;
-        _impressoraConectada.refresh();
-
-        //await Future.delayed(Duration(seconds: 1));
-        //debugPrint("Impressora conectada e teste realizado");
+      _printerConnectionState.value = PrinterConnectionState.connecting;
+      _connectionWarmupDone = false;
+      final bool connected = await printService.connectDevicesQuick(device: device);
+      if (!connected) {
+        _printerConnectionState.value = PrinterConnectionState.disconnected;
+        return false;
       }
-      return fg;
+      _impressoraConectada.value = device;
+      _impressoraConectada.refresh();
+      _printerConnectionState.value = PrinterConnectionState.connected;
+      debugPrint('Conexão estabelecida: ${device.name}');
+      // Sempre dispara teste de logo em cada conexão.
+      unawaited(_runTesteLogoSempre(device));
+      return true;
     } catch (e) {
-      debugPrint("ERRO ao conectar dispositivo: $e");
+      debugPrint('ERRO ao conectar dispositivo: $e');
+      _printerConnectionState.value = PrinterConnectionState.disconnected;
       return false;
+    }
+  }
+
+  // Método legado removido (warmup antigo); declaração eliminada para reduzir avisos não utilizados.
+
+  Future<void> _runTesteLogoSempre(BluetoothDevice device) async {
+    try {
+      debugPrint('[TESTE LOGO] Iniciando para ${device.name}');
+      // Usa densidade alta (default 4) para teste logo garantir preto forte.
+      final bool ok = await printService.printTesteLogo(overrideDensity: 4);
+      _connectionWarmupDone = true;
+      debugPrint('[TESTE LOGO] Resultado=${ok ? 'sucesso' : 'falha'} para ${device.name}');
+      if (_printQueue.isNotEmpty && !_isProcessingQueue) {
+        debugPrint('[TESTE LOGO] Fila pendente (${_printQueue.length}), iniciando envio');
+        unawaited(_imprimirEtiqueta());
+      }
+    } catch (e) {
+      debugPrint('[TESTE LOGO] Falha: $e');
+      _connectionWarmupDone = true;
+      if (_printQueue.isNotEmpty && !_isProcessingQueue) unawaited(_imprimirEtiqueta());
     }
   }
 
   Future<bool> disconnectDevice() async {
     _impressoraConectada.value = BluetoothDevice(name: '', address: '');
     _impressoraConectada.refresh();
+    _printerConnectionState.value = PrinterConnectionState.disconnected;
     return await printService.disconnectDevice();
   }
 
-  Future<void> enviaEtiqueta({required GlobalKey key}) async {
+  // Enfileira uma etiqueta a partir da captura de um widget identificado pela key
+  Future<void> enviaEtiqueta({required GlobalKey key, int? numEtiqueta}) async {
     try {
-      if (_impressoraConectada.value.name != "") {
-        ui.Image image = await captureWidgetAsPng(key);
-        //ui.Image image = await convertUint8ListToUiImage(bytes);
-        await addEtiquetaFila(image);
-      } else {
-        throw CustomException(message: "Você não está conectado a impressora!");
+      // bloqueia se já há processamento em curso para evitar concorrência de sockets
+      if (_isProcessingQueue) {
+        _showAppSnackbar('Já existe uma etiqueta sendo processada. Aguarde.', SnackBarType.info);
+        return;
       }
+      if (_impressoraConectada.value.name.isEmpty) {
+        _showAppSnackbar('Impressora não conectada', SnackBarType.error);
+        throw CustomException(message: 'Impressora não conectada');
+      }
+      // captura imagem
+      final ui.Image image = await captureWidgetAsPng(key);
+      await addEtiquetaFila(image, numEtiqueta: numEtiqueta);
     } catch (e) {
-      throw CustomException(message: "ERRO ENVIAR ETIQUETA: ${e.toString()}");
+      throw CustomException(message: 'ERRO ENVIAR ETIQUETA: ${e.toString()}');
     }
   }
 
-  Future<void> addEtiquetaFila(ui.Image image) async {
+  Future<void> addEtiquetaFila(ui.Image image, {int? numEtiqueta}) async {
     _printQueue.add(image);
     setQtdFila = _printQueue.length;
-    debugPrint("ADD FILA: ${DateTime.now()}");
-    if (!_isProcessingQueue) {
+    debugPrint('ADD FILA: ${DateTime.now()} / fila=${_printQueue.length}');
+    _showAppSnackbar('Etiqueta enfileirada para impressão', SnackBarType.queue);
+    // Só inicia processamento se conexão concluída e warmup finalizado.
+    if (!_isProcessingQueue && _printerConnectionState.value == PrinterConnectionState.connected && _connectionWarmupDone) {
       await _imprimirEtiqueta();
+    } else {
+      if (_printerConnectionState.value != PrinterConnectionState.connected) {
+        _showAppSnackbar('Aguardando conexão da impressora...', SnackBarType.info);
+      } else if (!_connectionWarmupDone) {
+        _showAppSnackbar('Finalizando teste de conexão...', SnackBarType.info);
+      }
     }
+  }
+
+  // Reinicializa a fila de impressão
+  void resetFila() {
+    _printQueue.clear();
+    setQtdFila = 0;
+    _isProcessingQueue = false;
+    _processingQueue.value = false;
+  }
+
+  // Tipos padronizados de snackbar
+  void _showAppSnackbar(String message, SnackBarType type) {
+    final int seq = ++_snackbarSeq;
+    final String signature = '${type.name}|$message';
+    final DateTime now = DateTime.now();
+    // Deduplicação temporal simples
+    if (_lastSnackbarSignature == signature && _lastSnackbarAt != null && now.difference(_lastSnackbarAt!) < _dedupeWindow) {
+      debugPrint('[SNACKBAR][skip][seq=$seq] duplicado dentro da janela ${_dedupeWindow.inSeconds}s type=${type.name} msg="$message"');
+      return;
+    }
+    _lastSnackbarSignature = signature;
+    _lastSnackbarAt = now;
+    // Origem (frame principal após esta função na stack)
+    String origin = '';
+    try {
+      final st = StackTrace.current.toString().split('\n');
+      // Pula a primeira linha (esta função) e pega a próxima relevante
+      origin = st.length > 1 ? st[1].trim() : st.first.trim();
+    } catch (_) {}
+    debugPrint('[SNACKBAR][emit][seq=$seq] type=${type.name} msg="$message" origin=$origin');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = Get.context;
+      if (ctx == null) return;
+      Color bg;
+      IconData icon;
+      switch (type) {
+        case SnackBarType.queue:
+          bg = Colors.blueAccent; icon = Icons.playlist_add; break;
+        case SnackBarType.success:
+          bg = Colors.green.shade600; icon = Icons.check_circle_outline; break;
+        case SnackBarType.error:
+          bg = Colors.red.shade700; icon = Icons.error_outline; break;
+        case SnackBarType.info:
+          bg = Colors.green.shade600; icon = Icons.info_outline; break;
+      }
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(
+          backgroundColor: bg,
+          behavior: SnackBarBehavior.floating,
+          content: Row(
+            children: [
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text(message, style: const TextStyle(color: Colors.white))),
+            ],
+          ),
+        ),
+      );
+      // Evita empilhamento visual: remove snackbar atual antes de inserir outra.
+      // (Chamada após agendar exibição garante que a anterior seja dispensada rapidamente.)
+      ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
+    });
   }
 
   Future<ui.Image> captureWidgetAsPng(GlobalKey key) async {
@@ -127,27 +253,18 @@ class NiimbotImpressorasController extends GetxController {
           message: "Erro: RenderRepaintBoundary não encontrado",
         );
       }
-      // Ajuste o pixelRatio conforme necessário
-      debugPrint("PIXELRATIO IMAGEM: ${_pixelRatio.value.toString()}");
-
-      /*final double pixelRatio =
-          _sizeLabelPrint.value.toSizeLabelPrintValues['targetWidthPx'] /
-          boundary.size.width; */
-
-      const double niimbotDpi = 300.0;
+      // Versão anterior (qualidade forte): usa DPI real aproximado da B1 (~203) e não limita pixelRatio.
+      debugPrint("PIXELRATIO IMAGEM (manual): ${_pixelRatio.value.toString()}");
+      const double niimbotDpi = 203.0; // DPI real do modelo
       const double mmToInch = 25.4;
-
-      // Calcula a largura desejada da imagem em pixels
-      final double targetWidthPx =
-          (_sizeLabelPrint.value.toSizeLabelPrintValues['labelWidth'] /
-              mmToInch) *
-          niimbotDpi;
-
-      final double pixelRatio = (targetWidthPx / boundary.size.width) + 1.8;
-      debugPrint("PIXELRATIO IMAGEM: ${pixelRatio.toString()}");
-
-      ui.Image image = await boundary.toImage(pixelRatio: pixelRatio);
-      //await image.toByteData(format: ui.ImageByteFormat.png);
+      final Map<String, dynamic> values = _sizeLabelPrint.value.toSizeLabelPrintValues;
+      final double targetWidthPx = (values['labelWidth'] / mmToInch) * niimbotDpi;
+      final double pixelRatio = targetWidthPx / boundary.size.width;
+      final DateTime inicio = DateTime.now();
+      debugPrint('[NIIMBOT][CAPTURE] boundary.size=${boundary.size.width}x${boundary.size.height} targetWidthPx=$targetWidthPx dpi=$niimbotDpi pixelRatio=$pixelRatio');
+      final ui.Image image = await boundary.toImage(pixelRatio: pixelRatio);
+      final DateTime fim = DateTime.now();
+      debugPrint('[NIIMBOT][CAPTURE] tempoCapturaMs=${fim.difference(inicio).inMilliseconds} imagemCapturada=${image.width}x${image.height}');
       return image;
       /*
       ByteData? byteData = await image.toByteData(
@@ -183,19 +300,85 @@ class NiimbotImpressorasController extends GetxController {
         return;
       }
       _isProcessingQueue = true;
+      bool overlayShown = false;
+      void showOverlay() {
+        if (overlayShown) return;
+        overlayShown = true;
+        final ctx = Get.context;
+        if (ctx != null) {
+          Get.dialog(
+            WillPopScope(
+              onWillPop: () async => false,
+              child: const Center(
+                child: Card(
+                  elevation: 8,
+                  child: Padding(
+                    padding: EdgeInsets.all(22),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(width: 42, height: 42, child: CircularProgressIndicator()),
+                        SizedBox(height: 16),
+                        Text('Imprimindo etiqueta...', style: TextStyle(fontSize: 16)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            barrierDismissible: false,
+          );
+        }
+      }
+      void hideOverlay() {
+        if (!overlayShown) return;
+        if (Get.isDialogOpen == true) Get.back();
+        overlayShown = false;
+      }
 
+      showOverlay();
+      _showAppSnackbar('Processando etiqueta...', SnackBarType.info);
       while (_printQueue.isNotEmpty) {
         final image = _printQueue.removeFirst();
-        await printService.printEtiqueta(
+        _processingQueue.value = true;
+        if (!_connectionWarmupDone) {
+          // Garantia extra caso warmup demore um pouco mais
+          await Future.delayed(const Duration(milliseconds: 400));
+          _connectionWarmupDone = true;
+        }
+        final res = await printService.printEtiqueta(
           imageEtiqueta: image,
           sizeLabelPrint: _sizeLabelPrint.value,
+          forceResize: false,
+          overrideDensity: 9, // mantém ajuste lógico para reforçar contraste
+          highContrast: true,
+          contrastThreshold: 150,
+          repeatPasses: 1,
+          overstrike: true,
+          dilate: true,
+          interPassDelayMs: 140,
+          thresholdOffset: 10,
+          gammaCorrection: 0.75,
+          simulateMultiPassForDensity: false, // evita impressão física duplicada
         );
         setQtdFila = _printQueue.length;
+        if (res == true) {
+          _showAppSnackbar('Etiqueta enviada para a impressora', SnackBarType.success);
+        } else {
+          _showAppSnackbar('Falha ao enviar para a impressora', SnackBarType.error);
+        }
+        // pequeno intervalo evita pressão no canal bluetooth
+        await Future.delayed(const Duration(milliseconds: 180));
       }
       _isProcessingQueue = false;
+      _processingQueue.value = false;
       _printQueue.clear();
+      hideOverlay();
     } catch (e) {
       debugPrint("ERRO IMPRIMIR ETIQUETA: ${e.toString()}");
+      _processingQueue.value = false;
+      _showAppSnackbar(e.toString(), SnackBarType.error);
+      if (Get.isDialogOpen == true) Get.back();
     }
   }
 }
