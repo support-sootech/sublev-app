@@ -75,6 +75,24 @@ class EtiquetaModel {
     numEtiqueta = json['num_etiqueta'];
   }
 
+  // Formata qtd_fracionada para exibição limpa:
+  // "6,00" -> "6" ; "6,50" permanece "6,50" ; valores sem vírgula retornam como estão.
+  String get qtdFracionadaDisplay {
+    final raw = qtdFracionada?.trim();
+    if (raw == null || raw.isEmpty) return '';
+    final normalize = raw.replaceAll(',', '.');
+    final value = double.tryParse(normalize);
+    if (value == null) return raw; // devolve original se não parseia
+    if (value % 1 == 0) return value.toInt().toString(); // inteiro puro
+    String s = value.toString();
+    if (s.contains('.')) {
+      s = s.replaceAll(RegExp(r'0+$'), '');
+      s = s.replaceAll(RegExp(r'\.$'), '');
+    }
+    s = s.replaceAll('.', ',');
+    return s;
+  }
+
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['id_etiquetas'] = idEtiquetas;

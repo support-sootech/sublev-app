@@ -32,12 +32,9 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
   DateTime? _validade;
   final RxInt _quantidade = 1.obs;
 
-    late final EtiquetaAvulsaController _controller =
-      Get.isRegistered<EtiquetaAvulsaController>()
-        ? Get.find<EtiquetaAvulsaController>()
-        : Get.put(EtiquetaAvulsaController());
-
-    late final NiimbotImpressorasController impressorasController =
+  late final EtiquetaAvulsaController _controller =
+      Get.find<EtiquetaAvulsaController>();
+  late final NiimbotImpressorasController impressorasController =
       Get.find<NiimbotImpressorasController>();
 
   UnidadeMedidaModel? _unidadeSelecionada;

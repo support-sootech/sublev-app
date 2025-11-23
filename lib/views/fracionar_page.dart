@@ -13,6 +13,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:ootech/views/widgets/etiqueta/etiqueta_50x50_widget.dart';
 import 'package:ootech/views/widgets/etiqueta/etiqueta_widget.dart';
 import 'package:ootech/views/widgets/home/app_bar_linear_gradient_widget.dart';
+import 'package:ootech/views/widgets/printer_status_icon_widget.dart';
+import 'package:ootech/views/widgets/printing_status_overlay_widget.dart';
 
 class FracionarPage extends StatefulWidget {
   const FracionarPage({super.key});
@@ -31,6 +33,13 @@ class _FracionarPageState extends State<FracionarPage> {
   int qtdUnidade = 1;
   int qtdFracao = 1;
   Widget? w;
+
+  @override
+  void initState() {
+    super.initState();
+    // Usa detalhe unificado (por enquanto scope all sem lista)
+    materialController.fetchVencimentoDetalhe(scope: 'all', includeList: false);
+  }
 
   buscarMaterial({required String codigo}) async {
     if (formKey.currentState?.validate() != null) {
@@ -345,7 +354,7 @@ class _FracionarPageState extends State<FracionarPage> {
   }
 
   void _loadPrinters() async {
-    bool isBluetoothEnabled = await impressorasController.isBbluetoothEnabled();
+    bool isBluetoothEnabled = await impressorasController.isBluetoothEnabled();
     if (!isBluetoothEnabled) {
       _scaffoldMessenger(
         message: 'No seu aparelho não está ligado o Bluetooth!',
@@ -488,37 +497,30 @@ class _FracionarPageState extends State<FracionarPage> {
                                     Text("${device.address}"),
                                   ],
                                 ),
-                                IconButton(
-                                  onPressed: () {
-                                    if (impressorasController
-                                            .getImpressoraConectada
-                                            .value
-                                            .name !=
-                                        "") {
-                                      _disconnectDevice();
-                                    } else {
-                                      _connectDevice(device: device);
-                                    }
-                                  },
-                                  icon: Obx(
-                                    () =>
-                                        impressorasController
-                                                .getImpressoraConectada
-                                                .value
-                                                .name ==
-                                            device.name
-                                        ? Icon(
-                                            Icons.print_outlined,
-                                            color: Colors.green,
-                                            size: 30,
-                                          )
-                                        : Icon(
-                                            Icons.print_disabled_outlined,
-                                            color: Colors.red,
-                                            size: 30,
-                                          ),
-                                  ),
-                                ),
+                                Obx(() {
+                                  final impressoraAtual = impressorasController
+                                      .getImpressoraConectada.value;
+                                  final conectado =
+                                      impressoraAtual.address.isNotEmpty &&
+                                          impressoraAtual.address ==
+                                              device.address;
+                                  return IconButton(
+                                    onPressed: () {
+                                      if (conectado) {
+                                        _disconnectDevice();
+                                      } else {
+                                        _connectDevice(device: device);
+                                      }
+                                    },
+                                    icon: Icon(
+                                      conectado
+                                          ? Icons.print_outlined
+                                          : Icons.print_disabled_outlined,
+                                      color: conectado ? Colors.green : Colors.red,
+                                      size: 30,
+                                    ),
+                                  );
+                                }),
                               ],
                             );
                           },
@@ -550,33 +552,7 @@ class _FracionarPageState extends State<FracionarPage> {
           title: Text("Fracionar Material", style: TextStyle(fontSize: 22)),
           flexibleSpace: AppBarLinearGradientWidget(),
           actions: [
-            IconButton(
-              onPressed: () {
-                _loadPrinters();
-              },
-              icon: Obx(
-                () =>
-                    impressorasController.getImpressoraConectada.value.name !=
-                        ""
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Icons.print_outlined, color: Colors.green),
-                          impressorasController.getQtdFila.value > 0
-                              ? Text(
-                                  "${impressorasController.getQtdFila}",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : SizedBox(),
-                        ],
-                      )
-                    : Icon(Icons.print_disabled_outlined, color: Colors.red),
-              ),
-            ),
+            PrinterStatusIconWidget(controller: impressorasController, onTap: _loadPrinters),
             InkWell(
               onTap: () => limparBusca(),
               child: Padding(
@@ -642,6 +618,73 @@ class _FracionarPageState extends State<FracionarPage> {
                       ],
                     ),
                   ),
+                  // Resumo de vencimentos
+                  Obx(() {
+                    final detalhe = materialController.getVencimentoDetalhe.value;
+                    final counts = detalhe?.counts;
+                    final hoje = counts?.hoje ?? 0;
+                    final amanha = counts?.amanha ?? 0;
+                    final ate7 = counts?.ate7 ?? 0; // já exclusivo vindo do backend
+                    final mais7 = counts?.mais7 ?? 0;
+                    Widget chip(String label, int count, Color color) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: color.withOpacity(0.6)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color.withOpacity(0.9))),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(count.toString(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        );
+                    // Ajuste layout: usar Wrap para evitar overflow horizontal em telas estreitas.
+                    // Reduz padding dos chips para caber em uma ou duas linhas sem cortar conteúdo.
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 4),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          chip('Hoje', hoje, Colors.red),
+                          chip('Amanhã', amanha, Colors.orange),
+                          chip('Até 7 dias', ate7, Colors.blueAccent),
+                          chip('>7 dias', mais7, Colors.green),
+                          InkWell(
+                            onTap: () => materialController.fetchVencimentoDetalhe(scope: 'all', includeList: false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.refresh, size: 16),
+                                  SizedBox(width: 4),
+                                  Text('Atualizar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                   SizedBox(height: 8),
                   Obx(
                     () =>
@@ -741,6 +784,9 @@ class _FracionarPageState extends State<FracionarPage> {
                     )
                   : SizedBox(),
             ),
+
+            // Overlay padronizado de impressão
+            PrintingStatusOverlayWidget(controller: impressorasController),
 
             Positioned(
               left: -10000.0,

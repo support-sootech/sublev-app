@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:ootech/views/splash_screen_page.dart';
 
 class App extends StatelessWidget {
@@ -6,9 +7,10 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       title: 'ootech',
       debugShowCheckedModeBanner: false,
+      navigatorKey: Get.key,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSwatch(
