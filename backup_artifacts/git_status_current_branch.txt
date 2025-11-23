@@ -1,5 +1,0 @@
-?? backup_artifacts/
-?? scripts/README_backup_restore.md
-?? scripts/backup_print.sh
-?? scripts/generate_manifest.sh
-?? scripts/restore_incremental.sh
