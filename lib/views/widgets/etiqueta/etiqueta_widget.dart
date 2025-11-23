@@ -21,11 +21,6 @@ class EtiquetaWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String rotuloQuantidade(EtiquetaModel m) {
-      final u = (m.dsUnidadesMedidas ?? '').toLowerCase();
-      const pesoUnits = ['kg', 'g', 'mg', 'ml', 'l', 'lt'];
-      return pesoUnits.contains(u) ? 'Peso' : 'Qtd';
-    }
     return Card(
       color: Colors.grey[200],
       elevation: 8,
@@ -73,7 +68,7 @@ class EtiquetaWidget extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          "${rotuloQuantidade(etiquetaModel)}: ${etiquetaModel.qtdFracionadaDisplay} ${etiquetaModel.dsUnidadesMedidas}",
+                          "Qtd: ${etiquetaModel.qtdFracionada} ${etiquetaModel.dsUnidadesMedidas}",
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
