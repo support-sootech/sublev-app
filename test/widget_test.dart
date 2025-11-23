@@ -22,7 +22,6 @@ void main() {
 
     // Home page must show the "Atalhos rápidos" header and at least one menu option.
     expect(find.text('Atalhos rápidos'), findsOneWidget);
-    // Layout uses Wrap for responsive shortcuts instead of GridView.
-    expect(find.byType(Wrap), findsWidgets);
+    expect(find.byType(GridView), findsOneWidget);
   });
 }
