@@ -43,7 +43,15 @@ class PrinterStatusIconWidget extends StatelessWidget {
           ],
         );
       }
-      return InkWell(onTap: onTap, child: icon);
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: IconButton(
+          visualDensity: VisualDensity.compact,
+          onPressed: onTap,
+          icon: icon,
+          tooltip: 'Impressoras',
+        ),
+      );
     });
   }
 }

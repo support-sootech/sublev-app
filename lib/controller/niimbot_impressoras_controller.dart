@@ -134,6 +134,14 @@ class NiimbotImpressorasController extends GetxController {
     } catch (e) {
       debugPrint('[TESTE LOGO] Falha: $e');
       _connectionWarmupDone = true;
+      // Em caso de erro crítico de IO, tenta desconectar e atualiza estado para o usuário
+      try {
+        await printService.disconnectDevice();
+      } catch (_) {}
+      _printerConnectionState.value = PrinterConnectionState.disconnected;
+      _impressoraConectada.value = BluetoothDevice(name: '', address: '');
+      _impressoraConectada.refresh();
+      _showAppSnackbar('Falha na comunicação com a impressora. Desconectado.', SnackBarType.error);
       if (_printQueue.isNotEmpty && !_isProcessingQueue) unawaited(_imprimirEtiqueta());
     }
   }
@@ -148,11 +156,24 @@ class NiimbotImpressorasController extends GetxController {
   // Enfileira uma etiqueta a partir da captura de um widget identificado pela key
   Future<void> enviaEtiqueta({required GlobalKey key, int? numEtiqueta}) async {
     try {
-      // bloqueia se já há processamento em curso para evitar concorrência de sockets
-      if (_isProcessingQueue) {
-        _showAppSnackbar('Já existe uma etiqueta sendo processada. Aguarde.', SnackBarType.info);
-        return;
+      // se já há processamento em curso, aguarda até a fila ficar livre (timeout 5s)
+      if (_isProcessingQueue || _printQueue.isNotEmpty) {
+        _showAppSnackbar('Aguardando fila atual terminar antes de capturar etiqueta...', SnackBarType.info);
+        int waited = 0;
+        const int timeoutMs = 5000;
+        const int stepMs = 150;
+        while ((_isProcessingQueue || _printQueue.isNotEmpty) && waited < timeoutMs) {
+          await Future.delayed(const Duration(milliseconds: stepMs));
+          waited += stepMs;
+        }
+        if (_isProcessingQueue || _printQueue.isNotEmpty) {
+          // se ainda estiver ocupada após timeout, falha graciosa
+          _showAppSnackbar('Impressora ocupada. Tente novamente em alguns segundos.', SnackBarType.error);
+          return;
+        }
       }
+      // pequena espera para garantir que o frame/estado esteja estabilizado antes da captura
+      await Future.delayed(const Duration(milliseconds: 120));
       if (_impressoraConectada.value.name.isEmpty) {
         _showAppSnackbar('Impressora não conectada', SnackBarType.error);
         throw CustomException(message: 'Impressora não conectada');
@@ -342,32 +363,50 @@ class NiimbotImpressorasController extends GetxController {
         final image = _printQueue.removeFirst();
         _processingQueue.value = true;
         if (!_connectionWarmupDone) {
-          // Garantia extra caso warmup demore um pouco mais
           await Future.delayed(const Duration(milliseconds: 400));
           _connectionWarmupDone = true;
         }
-        final res = await printService.printEtiqueta(
-          imageEtiqueta: image,
-          sizeLabelPrint: _sizeLabelPrint.value,
-          forceResize: false,
-          overrideDensity: 9, // mantém ajuste lógico para reforçar contraste
-          highContrast: true,
-          contrastThreshold: 150,
-          repeatPasses: 1,
-          overstrike: true,
-          dilate: true,
-          interPassDelayMs: 140,
-          thresholdOffset: 10,
-          gammaCorrection: 0.75,
-          simulateMultiPassForDensity: false, // evita impressão física duplicada
-        );
-        setQtdFila = _printQueue.length;
-        if (res == true) {
-          _showAppSnackbar('Etiqueta enviada para a impressora', SnackBarType.success);
-        } else {
-          _showAppSnackbar('Falha ao enviar para a impressora', SnackBarType.error);
+        dynamic res;
+        try {
+          // Chamada simples, sem multi-pass, sem overstrike, sem repeatPasses, igual main
+          res = await printService.printEtiqueta(
+            imageEtiqueta: image,
+            sizeLabelPrint: _sizeLabelPrint.value,
+          );
+        } catch (e) {
+          debugPrint('ERRO printEtiqueta (controller): $e');
+          try {
+            await printService.disconnectDevice();
+          } catch (_) {}
+          _printerConnectionState.value = PrinterConnectionState.disconnected;
+          _impressoraConectada.value = BluetoothDevice(name: '', address: '');
+          _impressoraConectada.refresh();
+          _showAppSnackbar('Conexão com impressora perdida. Verifique o aparelho.', SnackBarType.error);
+          _isProcessingQueue = false;
+          _processingQueue.value = false;
+          if (Get.isDialogOpen == true) Get.back();
+          return;
         }
-        // pequeno intervalo evita pressão no canal bluetooth
+        setQtdFila = _printQueue.length;
+        bool ok = false;
+        int usedDensity = 1;
+        int requestedDensity = 1;
+        if (res is bool) {
+          ok = res;
+        } else if (res is Map<String, dynamic>) {
+          ok = res['success'] == true;
+          usedDensity = res['usedDensity'] ?? res['requestedDensity'] ?? usedDensity;
+          requestedDensity = res['requestedDensity'] ?? requestedDensity;
+        }
+        if (!ok) {
+          _showAppSnackbar('Falha ao enviar para a impressora', SnackBarType.error);
+        } else {
+          if (usedDensity < requestedDensity) {
+            _showAppSnackbar('Etiqueta enviada (densidade reduzida pelo dispositivo)', SnackBarType.info);
+          } else {
+            _showAppSnackbar('Etiqueta enviada para a impressora', SnackBarType.success);
+          }
+        }
         await Future.delayed(const Duration(milliseconds: 180));
       }
       _isProcessingQueue = false;

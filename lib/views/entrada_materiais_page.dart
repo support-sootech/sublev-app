@@ -197,34 +197,37 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
         if (mounted) setState(() => _loading = false);
       }
     } else {
-      // Inclusão: mantém estratégia rápida (UI imediata + carga mínima assíncrona).
-      setState(() => _loading = false);
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        if (kDebugMode) debugPrint('[EntradaMateriaisPage] Post-frame combos inclusão start');
+      // Inclusão: bloquear até o conjunto mínimo de combos estar disponível.
+      // Isto garante que os comboboxes necessários estejam prontos antes de
+      // exibir o formulário (paridade com o fluxo de edição).
+      setState(() => _loading = true);
+      if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap inclusão: aguardando combos mínimos...');
+      try {
+        // Limpar seleções iniciais
+        _ctrl.categoriaSel.value = null;
+        _ctrl.fornecedorSel.value = null;
+        _ctrl.fabricanteSel.value = null;
+        _ctrl.marcaSel.value = null;
+        _ctrl.condicaoEmbalagemSel.value = null;
+        _ctrl.unidadeSel.value = null;
+        _ctrl.modoConservacaoSel.value = null;
+        await _ctrl.ensureMinimalCombosLoaded();
+        // Seleciona unidade padrão 'kg' quando disponível após carga.
         try {
-          _ctrl.categoriaSel.value = null;
-          _ctrl.fornecedorSel.value = null;
-          _ctrl.fabricanteSel.value = null;
-          _ctrl.marcaSel.value = null;
-          _ctrl.condicaoEmbalagemSel.value = null;
-          _ctrl.unidadeSel.value = null;
-          _ctrl.modoConservacaoSel.value = null;
-          await _ctrl.ensureMinimalCombosLoaded();
-          // Seleciona unidade padrão 'kg' quando disponível após carga.
-          try {
-            final kg = _ctrl.unidades.firstWhere(
-              (u) => (u.descricao.trim().toLowerCase() == 'kg' || u.descricao.trim().toLowerCase() == 'kg.'),
-              orElse: () => OptionModel(id: 0, descricao: ''),
-            );
-            if (kg.id != 0 && _ctrl.unidadeSel.value == null) {
-              _ctrl.unidadeSel.value = kg;
-            }
-          } catch (_) {}
-        } catch (e) {
-          if (kDebugMode) debugPrint('[EntradaMateriaisPage] post-frame inclusão error: $e');
-        }
-      });
+          final kg = _ctrl.unidades.firstWhere(
+            (u) => (u.descricao.trim().toLowerCase() == 'kg' || u.descricao.trim().toLowerCase() == 'kg.'),
+            orElse: () => OptionModel(id: 0, descricao: ''),
+          );
+          if (kg.id != 0 && _ctrl.unidadeSel.value == null) {
+            _ctrl.unidadeSel.value = kg;
+          }
+        } catch (_) {}
+        if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap inclusão concluído (combos mínimos prontos)');
+      } catch (e) {
+        if (kDebugMode) debugPrint('[EntradaMateriaisPage] Erro bootstrap inclusão: $e');
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
     }
   }
 
@@ -770,6 +773,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                         selectedRx: _ctrl.fornecedorSel,
                         onChanged: (_) => _serverErrors.remove('id_pessoas_fornecedor'),
                         hint: 'Selecione...',
+                        errorText: _serverErrors['id_pessoas_fornecedor'] ?? _serverErrors['fornecedor'],
                         onTapLoad: _ctrl.ensureFornecedoresLoaded,
                         loadingRx: _ctrl.fornecedoresLoading,
                       )),
@@ -779,6 +783,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                         selectedRx: _ctrl.fabricanteSel,
                         onChanged: (_) => _serverErrors.remove('id_pessoas_fabricante'),
                         hint: 'Selecione...',
+                        errorText: _serverErrors['id_pessoas_fabricante'] ?? _serverErrors['fabricante'],
                         onTapLoad: _ctrl.ensureFabricantesLoaded,
                         loadingRx: _ctrl.fabricantesLoading,
                       )),

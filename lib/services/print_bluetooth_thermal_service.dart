@@ -135,6 +135,8 @@ class PrintBluetoothThermalService {
     }
   }
 
+  /// Imprime etiqueta em impressora térmica ESC/POS (não Niimbot).
+  /// [highContrast]: aplica binarização agressiva na logo.
   Future<void> imprimirEtiqueta({required EtiquetaModel etiqueta, bool highContrast = true}) async {
     bool conexionStatus = await PrintBluetoothThermal.connectionStatus;
 
@@ -260,6 +262,15 @@ class PrintBluetoothThermalService {
               }
             }
           }
+          // Garantir fallback seguro: se imagem ficou toda branca/preta, logar
+          int black = 0, white = 0;
+          for (int y = 0; y < grayscaleImage.height; y++) {
+            for (int x = 0; x < grayscaleImage.width; x++) {
+              final p = grayscaleImage.getPixel(x, y);
+              if (img.getRed(p) == 0) black++; else white++;
+            }
+          }
+          debugPrint('[THERMAL] Logo binarizada: preto=[1m$black[0m branco=[1m$white[0m');
           bytes += generator.imageRaster(grayscaleImage, align: PosAlign.center, highDensityHorizontal: true, highDensityVertical: true);
         }
       } catch (e) {
