@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 String removerAcentuacoes(String texto) {
   if (texto.isEmpty) {
     return texto;
@@ -20,6 +22,37 @@ String removerAcentuacoes(String texto) {
   });
 
   return textoSemAcentos;
+}
+
+/// Formata um valor de peso para envio ao servidor seguindo o padrão brasileiro:
+/// - inteiros são enviados sem casas decimais: "100"
+/// - decimais usam vírgula: "3,5" ou "10,25"
+String formatPesoForServer(dynamic value) {
+  if (value == null) return '';
+
+  double? v;
+  if (value is String) {
+    var s = value.trim();
+    if (s.isEmpty) return '';
+    // Aceitar formatos com ponto ou vírgula e remover separador de milhares
+    s = s.replaceAll('.', '');
+    s = s.replaceAll(',', '.');
+    v = double.tryParse(s);
+  } else if (value is num) {
+    v = value.toDouble();
+  } else {
+    try {
+      v = double.tryParse(value.toString());
+    } catch (_) {
+      v = null;
+    }
+  }
+
+  if (v == null) return value.toString();
+  if (v % 1 == 0) return v.toInt().toString();
+
+  final fmt = NumberFormat('#.######', 'pt_BR');
+  return fmt.format(v);
 }
 
 enum AcaoMateriaisFracionadoVencimento {

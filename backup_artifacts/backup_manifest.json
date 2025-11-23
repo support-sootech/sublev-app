@@ -1,0 +1,8 @@
+{
+  "tarfile": "backup_artifacts/sublev-app-backup-20251123-040127.tar.gz",
+  "sha256": "474e78507ebda9ddb252b06bf3f217f846c04cf2e016acb56b6d03206466603e",
+  "git_last": "957065a65a4bce5ffe9401565d59acb9d65f9d15 ghcastellano Sun Nov 23 03:53:17 2025 -0300 backup: printing snapshot backup/printing-20251123-035315",
+  "sensitive_list_file": "backup_artifacts/secure_list.txt",
+  "file_list": "backup_artifacts/backup_list.txt",
+  "created_at": "2025-11-23T07:07:41Z"
+}

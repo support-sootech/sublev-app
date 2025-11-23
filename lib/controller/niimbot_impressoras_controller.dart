@@ -11,9 +11,19 @@ import 'package:ootech/config/custom_exception.dart';
 import 'package:ootech/config/functions_global.dart';
 import 'package:ootech/services/niimbot_print_bluetooth_thermal_service.dart';
 
+enum PrinterConnectionState { disconnected, connecting, connected }
+
 class NiimbotImpressorasController extends GetxController {
   NiimbotPrintBluetoothThermalService printService =
       NiimbotPrintBluetoothThermalService();
+
+  // Estado de conexão da impressora para UI
+  final _printerConnectionState = PrinterConnectionState.disconnected.obs;
+  Rx<PrinterConnectionState> get getPrinterConnectionState => _printerConnectionState;
+
+  // Indica se o warmup pós-conexão já foi executado
+  bool _connectionWarmupDone = true;
+
 
   final _statusListaImpressoras = StatusListaImpressoras.loading.obs;
   Rx<StatusListaImpressoras> get getStatusListaImpressoras =>
@@ -40,6 +50,21 @@ class NiimbotImpressorasController extends GetxController {
   final Queue<ui.Image> _printQueue = Queue<ui.Image>();
   // Controla a fila está sendo processada
   bool _isProcessingQueue = false;
+
+  final _processingQueue = false.obs;
+  RxBool get getIsProcessingQueue => _processingQueue;
+
+  // Exposição simples para UI: está capturando/enfileirando agora
+  bool get isCapturandoOuProcessando => _processingQueue.value || _isProcessingQueue;
+
+  // Reseta completamente a fila de impressão (utilizado por algumas telas)
+  void resetFila() {
+    _printQueue.clear();
+    _isProcessingQueue = false;
+    _processingQueue.value = false;
+    _processingQueue.refresh();
+    setQtdFila = 0;
+  }
 
   //_printQueue.clear();
 
@@ -95,7 +120,7 @@ class NiimbotImpressorasController extends GetxController {
     return await printService.disconnectDevice();
   }
 
-  Future<void> enviaEtiqueta({required GlobalKey key}) async {
+  Future<void> enviaEtiqueta({required GlobalKey key, int? numEtiqueta}) async {
     try {
       if (_impressoraConectada.value.name != "") {
         ui.Image image = await captureWidgetAsPng(key);
@@ -107,6 +132,11 @@ class NiimbotImpressorasController extends GetxController {
     } catch (e) {
       throw CustomException(message: "ERRO ENVIAR ETIQUETA: ${e.toString()}");
     }
+  }
+
+  /// Alias com nome correto para chamadas de UI
+  Future<bool> isBluetoothEnabled() async {
+    return await printService.isBbluetoothEnabled();
   }
 
   Future<void> addEtiquetaFila(ui.Image image) async {
