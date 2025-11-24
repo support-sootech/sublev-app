@@ -73,30 +73,3 @@ extension sizeLabelPrintExtension on SizeLabelPrint {
     }
   }
 }
-
-/// Formata um valor de peso para envio ao servidor seguindo o padrão brasileiro:
-/// - inteiros são enviados sem casas decimais: "100"
-/// - decimais usam vírgula: "3,5" / "10,25"
-String formatPesoForServer(dynamic value) {
-  if (value == null) return '';
-  double? v;
-  if (value is String) {
-    var s = value.trim();
-    if (s.isEmpty) return '';
-    s = s.replaceAll('.', ''); // remove separador de milhares
-    s = s.replaceAll(',', '.'); // usa ponto para parse
-    v = double.tryParse(s);
-  } else if (value is num) {
-    v = value.toDouble();
-  } else {
-    v = double.tryParse(value.toString());
-  }
-  if (v == null) return value.toString();
-  if (v % 1 == 0) return v.toInt().toString();
-  // Limita a até 6 casas para evitar excesso
-  String s = v.toStringAsFixed(6);
-  s = s.replaceAll(RegExp(r'0+$'), ''); // remove zeros à direita
-  s = s.replaceAll(RegExp(r'\.$'), ''); // remove ponto se sobrou
-  s = s.replaceAll('.', ',');
-  return s;
-}

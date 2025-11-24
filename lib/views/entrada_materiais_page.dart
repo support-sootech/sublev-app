@@ -197,11 +197,10 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
         if (mounted) setState(() => _loading = false);
       }
     } else {
-      // Inclusão: bloquear até o conjunto mínimo de combos estar disponível.
-      // Isto garante que os comboboxes necessários estejam prontos antes de
-      // exibir o formulário (paridade com o fluxo de edição).
+      // Inclusão: bloquear até TODOS os combos estarem disponíveis, garantindo
+      // que fornecedor/fabricante/marca/etc. já tenham carregado antes de abrir a tela.
       setState(() => _loading = true);
-      if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap inclusão: aguardando combos mínimos...');
+      if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap inclusão: aguardando carga completa de combos...');
       try {
         // Limpar seleções iniciais
         _ctrl.categoriaSel.value = null;
@@ -211,7 +210,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
         _ctrl.condicaoEmbalagemSel.value = null;
         _ctrl.unidadeSel.value = null;
         _ctrl.modoConservacaoSel.value = null;
-        await _ctrl.ensureMinimalCombosLoaded();
+        await _ctrl.loadCombos();
         // Seleciona unidade padrão 'kg' quando disponível após carga.
         try {
           final kg = _ctrl.unidades.firstWhere(
@@ -222,7 +221,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
             _ctrl.unidadeSel.value = kg;
           }
         } catch (_) {}
-        if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap inclusão concluído (combos mínimos prontos)');
+        if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap inclusão concluído (combos completos prontos)');
       } catch (e) {
         if (kDebugMode) debugPrint('[EntradaMateriaisPage] Erro bootstrap inclusão: $e');
       } finally {

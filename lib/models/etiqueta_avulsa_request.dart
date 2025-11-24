@@ -1,5 +1,3 @@
-import 'package:ootech/config/functions_global.dart';
-
 class EtiquetaAvulsaRequest {
   final String descricao;
   final DateTime? validade;
@@ -26,13 +24,10 @@ class EtiquetaAvulsaRequest {
           '${validade!.day.toString().padLeft(2, '0')}';
     }
 
-      // Serializa peso usando formato brasileiro (inteiro -> "100", decimal -> "3,5")
-      final pesoStr = formatPesoForServer(peso);
-
     return {
       'descricao': descricao,
       'validade': validadeIso,
-      'peso': pesoStr,
+      'peso': peso,
       'id_unidades_medidas': idUnidadesMedidas,
       'id_modo_conservacao': idModoConservacao,
       'quantidade': quantidade,

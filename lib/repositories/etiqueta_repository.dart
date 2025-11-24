@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:ootech/config/custom_exception.dart';
 import 'package:ootech/config/handle_dio_error.dart';
 import 'package:ootech/models/etiqueta_model.dart';
-import 'package:ootech/config/functions_global.dart';
 import 'package:ootech/models/etiqueta_avulsa_models.dart';
 import 'package:ootech/models/etiqueta_avulsa_request.dart';
 import 'package:ootech/repositories/entrada_materiais_repository.dart';
@@ -111,15 +110,12 @@ class EtiquetaRepository {
   }
 
   Future<int> _criarMaterialBase(EtiquetaAvulsaRequest request) async {
-    // Usa utilitário global para manter padrão BR (vírgula) e remover zeros supérfluos.
-    String pesoStr = formatPesoForServer(request.peso);
-
     final payload = <String, dynamic>{
       'material_descricao': request.descricao,
       'material_cod_barras': '',
       'material_id_unidades_medidas': request.idUnidadesMedidas,
       'material_id_modo_conservacao': request.idModoConservacao,
-      'material_peso': pesoStr,
+      'material_peso': request.peso,
       'material_quantidade': request.quantidade,
       // Marca material como originado por etiqueta avulsa
       'material_fg_avulsa': 'S',
