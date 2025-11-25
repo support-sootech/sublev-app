@@ -112,7 +112,7 @@ class EtiquetaRepository {
   Future<int> _criarMaterialBase(EtiquetaAvulsaRequest request) async {
     final payload = <String, dynamic>{
       'material_descricao': request.descricao,
-      'material_cod_barras': '',
+      'material_cod_barras': null,
       'material_id_unidades_medidas': request.idUnidadesMedidas,
       'material_id_modo_conservacao': request.idModoConservacao,
       'material_peso': request.peso,

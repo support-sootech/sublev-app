@@ -457,6 +457,8 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
         return t;
       }
 
+      final codBarras = _codBarrasCtrl.text.trim();
+
       final data = {
         'material_descricao': desc,
         'material_quantidade': _normalizeInt(_quantidadeCtrl.text),
@@ -471,7 +473,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
         'material_id_embalagem_condicoes': _ctrl.condicaoEmbalagemSel.value?.id,
         'material_id_modo_conservacao': _ctrl.modoConservacaoSel.value?.id,
         'material_peso': _formatPesoBR(_pesoCtrl.text),
-        'material_cod_barras': _codBarrasCtrl.text.trim(),
+        'material_cod_barras': codBarras.isEmpty ? null : codBarras,
         'material_nro_nota': _nroNotaCtrl.text.trim(),
         'material_temperatura': _temperaturaCtrl.text.trim(),
         'material_sif': _sifCtrl.text.trim(),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ootech/repositories/materiais_repository.dart';
@@ -15,21 +17,31 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
   final MateriaisRepository _repo = MateriaisRepository();
   bool _loading = true;
   final List<Map<String, dynamic>> _allItems = [];
+  final List<Map<String, dynamic>> _filteredItems = [];
   final List<Map<String, dynamic>> _visibleItems = [];
   static const int _pageSize = 30;
   bool _loadingMore = false;
   bool _hasMore = true;
   final ScrollController _scrollCtrl = ScrollController();
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _statusFiltro = '';
+  String _searchTerm = '';
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
+    _searchCtrl.addListener(_onSearchChanged);
     _load();
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _searchCtrl
+      ..removeListener(_onSearchChanged)
+      ..dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -37,14 +49,11 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final materiais = await _repo.listar();
+      final materiais = await _repo.listar(status: _statusFiltro);
       _allItems
         ..clear()
         ..addAll(materiais.map((m) => m.toJson()));
-      _visibleItems
-        ..clear()
-        ..addAll(_allItems.take(_pageSize));
-      _hasMore = _allItems.length > _visibleItems.length;
+      _applyFilters();
     } catch (e) {
       if (kDebugMode) debugPrint('Erro ao carregar materiais: $e');
       if (mounted) {
@@ -54,6 +63,31 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _applyFilters() {
+    final term = _searchTerm.trim().toLowerCase();
+    final base = term.isEmpty
+        ? List<Map<String, dynamic>>.from(_allItems)
+        : _allItems.where((item) {
+            bool matches(dynamic value) =>
+                value != null &&
+                value.toString().toLowerCase().contains(term);
+            return matches(item['descricao']) ||
+                matches(item['cod_barras']) ||
+                matches(item['marca']) ||
+                matches(item['nm_fornecedor']) ||
+                matches(item['nm_fabricante']) ||
+                matches(item['lote']);
+          }).toList();
+    _filteredItems
+      ..clear()
+      ..addAll(base);
+      _visibleItems
+        ..clear()
+        ..addAll(_filteredItems.take(_pageSize));
+    _hasMore = _visibleItems.length < _filteredItems.length;
+    if (mounted) setState(() {});
   }
 
   void _onScroll() {
@@ -69,14 +103,28 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
     setState(() => _loadingMore = true);
     await Future.delayed(const Duration(milliseconds: 150));
     final current = _visibleItems.length;
-    final nextSlice = _allItems.skip(current).take(_pageSize).toList();
+    final nextSlice = _filteredItems.skip(current).take(_pageSize).toList();
     _visibleItems.addAll(nextSlice);
-    _hasMore = _visibleItems.length < _allItems.length;
+    _hasMore = _visibleItems.length < _filteredItems.length;
     if (mounted) setState(() => _loadingMore = false);
   }
 
   Future<void> _refresh() async {
     await _load();
+  }
+
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      _searchTerm = _searchCtrl.text;
+      _applyFilters();
+    });
+  }
+
+  void _setStatusFiltro(String value) {
+    if (_statusFiltro == value) return;
+    setState(() => _statusFiltro = value);
+    _load();
   }
 
   @override
@@ -88,19 +136,43 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
           flexibleSpace: AppBarLinearGradientWidget(),
           leading: IconButton(
               icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-          actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh)],
+          actions: [
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.filter_alt_outlined),
+              tooltip: 'Filtrar status',
+              onSelected: _setStatusFiltro,
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: '', child: Text('Todos')),
+                PopupMenuItem(value: 'A', child: Text('Ativos')),
+                PopupMenuItem(value: 'D', child: Text('Inativos')),
+              ],
+            ),
+            IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh),
+          ],
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _visibleItems.isEmpty
-                ? const Center(child: Text('Nenhum material encontrado'))
+                ? Column(
+                    children: [
+                      _buildSearchBar(context),
+                      const Expanded(
+                        child: Center(child: Text('Nenhum material encontrado')),
+                      ),
+                    ],
+                  )
                 : RefreshIndicator(
                     onRefresh: _refresh,
                     child: ListView.builder(
                       controller: _scrollCtrl,
-                      itemCount: _visibleItems.length + (_hasMore ? 1 : 0),
+                      padding: const EdgeInsets.only(bottom: 80),
+                      itemCount: _visibleItems.length + (_hasMore ? 2 : 1),
                       itemBuilder: (context, idx) {
-                        if (idx >= _visibleItems.length) {
+                        if (idx == 0) {
+                          return _buildSearchBar(context);
+                        }
+                        final dataIndex = idx - 1;
+                        if (dataIndex >= _visibleItems.length) {
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Center(
@@ -114,7 +186,7 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
                             ),
                           );
                         }
-                        final it = _visibleItems[idx];
+                        final it = _visibleItems[dataIndex];
                         final id = it['id_materiais'] ?? it['id'] ?? 0;
                         final descricao = (it['descricao'] ?? '').toString();
                         final cod = (it['cod_barras'] ?? '').toString();
@@ -239,6 +311,30 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
           },
           icon: const Icon(Icons.add),
           label: const Text('Novo'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: TextField(
+        controller: _searchCtrl,
+        decoration: InputDecoration(
+          labelText: 'Filtrar por código, descrição, marca...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _searchTerm.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    _searchTerm = '';
+                    _applyFilters();
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
