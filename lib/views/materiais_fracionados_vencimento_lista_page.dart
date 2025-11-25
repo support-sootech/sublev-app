@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:ootech/config/functions_global.dart';
 import 'package:ootech/controller/material_fracionado_vencimento_controller.dart';
-import 'package:ootech/controller/niimbot_impressoras_controller.dart';
 import 'package:ootech/models/etiqueta_model.dart';
-import 'package:ootech/views/widgets/etiqueta/etiqueta_50x50_widget.dart';
 import 'package:ootech/views/widgets/etiqueta/etiqueta_widget.dart';
 import 'package:ootech/views/widgets/home/app_bar_linear_gradient_widget.dart';
 
@@ -22,17 +20,9 @@ class MateriaisFracionadosVencimentoListaPage extends StatefulWidget {
 
 class _MateriaisFracionadosVencimentoListaPageState
     extends State<MateriaisFracionadosVencimentoListaPage> {
-  late MaterialFracionadoVencimentoController
-  materialFracionadoVencimentoController =
+  late final MaterialFracionadoVencimentoController
+      materialFracionadoVencimentoController =
       MaterialFracionadoVencimentoController();
-
-  final NiimbotImpressorasController impressorasController =
-      Get.find<NiimbotImpressorasController>();
-
-  _loadListaEtiquetas() async {
-    await materialFracionadoVencimentoController
-        .listaMaterialFracionadoVencimento(filtro: widget.filtro);
-  }
 
   @override
   void initState() {
@@ -40,10 +30,14 @@ class _MateriaisFracionadosVencimentoListaPageState
     _loadListaEtiquetas();
   }
 
+  Future<void> _loadListaEtiquetas() async {
+    await materialFracionadoVencimentoController
+        .listaMaterialFracionadoVencimento(filtro: widget.filtro);
+  }
+
   @override
   Widget build(BuildContext context) {
     String subTitle = '';
-
     if (AcaoMateriaisFracionadoVencimento.vencem_hoje.toStringAcao ==
         widget.filtro) {
       subTitle = "hoje";
@@ -63,68 +57,43 @@ class _MateriaisFracionadosVencimentoListaPageState
           title: Column(
             children: [
               Text("Materiais Fracionados", style: TextStyle(fontSize: 24)),
-              Text("Vencimento ${subTitle}", style: TextStyle(fontSize: 16)),
+              Text("Vencimento $subTitle", style: TextStyle(fontSize: 16)),
             ],
           ),
           centerTitle: true,
           flexibleSpace: AppBarLinearGradientWidget(),
         ),
         body: Container(
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
           width: MediaQuery.of(context).size.width,
           height: MediaQuery.of(context).size.height,
           child: Obx(() {
-            Widget w = SizedBox();
             switch (materialFracionadoVencimentoController.getState.value) {
               case MaterialFracionadoVencimentoState.loading:
-                w = Center(child: CircularProgressIndicator());
-                break;
-              case MaterialFracionadoVencimentoState.success:
-                w =
-                    materialFracionadoVencimentoController
-                            .getListaEtiquetdas
-                            .length >
-                        0
-                    ? ListView.builder(
-                        itemCount: materialFracionadoVencimentoController
-                            .getListaEtiquetdas
-                            .length,
-                        itemBuilder: (BuildContext context, int index) {
-                          EtiquetaModel etiquetaModel =
-                              materialFracionadoVencimentoController
-                                  .getListaEtiquetdas[index];
-
-                          return impressorasController
-                                      .getSizeLabelPrint
-                                      .value ==
-                                  SizeLabelPrint.$50_x_50
-                              ? Etiqueta50x50Widget(
-                                  etiquetaModel: etiquetaModel,
-                                  fgImprimir: true,
-                                  globalKey: null,
-                                  sizeLabelPrint: impressorasController
-                                      .getSizeLabelPrint
-                                      .value,
-                                )
-                              : EtiquetaWidget(
-                                  etiquetaModel: etiquetaModel,
-                                  fgImprimir: true,
-                                  globalKey: null,
-                                  sizeLabelPrint: impressorasController
-                                      .getSizeLabelPrint
-                                      .value,
-                                );
-                        },
-                      )
-                    : Center(
-                        child: Text("Nenhum material fracionado localizado!!"),
-                      );
-                break;
+                return const Center(child: CircularProgressIndicator());
               case MaterialFracionadoVencimentoState.error:
-                w = SizedBox();
-                break;
+                return const SizedBox();
+              case MaterialFracionadoVencimentoState.success:
+                final lista =
+                    materialFracionadoVencimentoController.getListaEtiquetdas;
+                if (lista.isEmpty) {
+                  return const Center(
+                    child: Text("Nenhum material fracionado localizado!!"),
+                  );
+                }
+                return ListView.builder(
+                  itemCount: lista.length,
+                  itemBuilder: (_, index) {
+                    final EtiquetaModel etiquetaModel = lista[index];
+                    return EtiquetaWidget(
+                      etiquetaModel: etiquetaModel,
+                      fgImprimir: false,
+                      globalKey: null,
+                      sizeLabelPrint: SizeLabelPrint.$50_x_50,
+                    );
+                  },
+                );
             }
-            return w;
           }),
         ),
       ),

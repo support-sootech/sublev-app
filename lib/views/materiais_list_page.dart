@@ -65,8 +65,10 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
     }
   }
 
-  void _applyFilters() {
-    final term = _searchTerm.trim().toLowerCase();
+  void _applyFilters({bool triggerSetState = false}) {
+    final termRaw = _searchCtrl.text;
+    _searchTerm = termRaw;
+    final term = termRaw.trim().toLowerCase();
     final base = term.isEmpty
         ? List<Map<String, dynamic>>.from(_allItems)
         : _allItems.where((item) {
@@ -84,10 +86,10 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
       ..clear()
       ..addAll(base);
       _visibleItems
-        ..clear()
-        ..addAll(_filteredItems.take(_pageSize));
+      ..clear()
+      ..addAll(_filteredItems.take(_pageSize));
     _hasMore = _visibleItems.length < _filteredItems.length;
-    if (mounted) setState(() {});
+    if (triggerSetState && mounted) setState(() {});
   }
 
   void _onScroll() {
@@ -116,8 +118,8 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
   void _onSearchChanged() {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 250), () {
-      _searchTerm = _searchCtrl.text;
-      _applyFilters();
+      if (!mounted) return;
+      _applyFilters(triggerSetState: true);
     });
   }
 
@@ -144,7 +146,7 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
               itemBuilder: (context) => const [
                 PopupMenuItem(value: '', child: Text('Todos')),
                 PopupMenuItem(value: 'A', child: Text('Ativos')),
-                PopupMenuItem(value: 'D', child: Text('Inativos')),
+                PopupMenuItem(value: 'I', child: Text('Inativos')),
               ],
             ),
             IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh),
@@ -206,7 +208,7 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
                           case 'A':
                             statusColor = Colors.green.shade600;
                             break;
-                          case 'D':
+                          case 'I':
                             statusColor = Colors.red.shade600;
                             break;
                           default:
@@ -287,7 +289,7 @@ class _MateriaisListPageState extends State<MateriaisListPage> {
                                     child: Text(
                                       statusLabel == 'A'
                                           ? 'Ativo'
-                                          : (statusLabel == 'D' ? 'Inativo' : statusLabel),
+                                          : (statusLabel == 'I' ? 'Inativo' : statusLabel),
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
