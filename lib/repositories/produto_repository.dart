@@ -34,36 +34,29 @@ class ProdutoRepository {
     return <ProdutoModel>[];
   }
 
-  Future<ProdutoModel?> buscarDetalhesPorCodigoBarras(String codigo) async {
+  Future<ProdutoModel?> buscarPorCodigoBarras(String codigo) async {
     if (codigo.trim().isEmpty) return null;
     final connected = await networkAccess.checkNetworkAcess();
     if (!connected) return null;
 
     try {
       final resp = await service.dio.post(
-        '/produtos-json',
+        '/prod-autocomplete-json',
         data: {
-          'draw': '1',
-          'start': '0',
-          'length': '1',
-          'search[value]': codigo.trim(),
+          'flagListaCampo': 'C',
+          'campo': codigo.trim(),
         },
       );
-      final data = resp.data;
-      if (data is Map && data['data'] is List && data['data'].isNotEmpty) {
-        final first = data['data'].first;
+      final payload = resp.data is Map ? resp.data['data'] : resp.data;
+      if (payload is List && payload.isNotEmpty) {
+        final first = payload.first;
         if (first is Map) {
-          return ProdutoModel.fromJson(
-              Map<String, dynamic>.from(first));
+          return ProdutoModel.fromJson(Map<String, dynamic>.from(first));
         }
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('buscarDetalhesPorCodigoBarras erro: $e');
+      if (kDebugMode) debugPrint('buscarPorCodigoBarras erro: $e');
     }
     return null;
-  }
-
-  Future<ProdutoModel?> buscarPorCodigoBarras(String codigo) {
-    return buscarDetalhesPorCodigoBarras(codigo);
   }
 }
