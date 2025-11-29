@@ -11,6 +11,7 @@ import 'package:ootech/models/produto_model.dart';
 import 'package:ootech/services/network_access.dart';
 import 'package:ootech/models/option_model.dart';
 import 'package:ootech/views/widgets/home/app_bar_linear_gradient_widget.dart';
+import 'package:ootech/views/widgets/barcode_scanner_dialog.dart';
 import 'package:ootech/views/widgets/dropdown_option_reactive.dart';
 
 class EntradaMateriaisPage extends StatefulWidget {
@@ -374,6 +375,47 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
     sel.value = found; // pode ser null se não encontrou
   }
 
+  Future<void> _scanCodigoBarras() async {
+    if (widget.materialId != null) return;
+    final code = await showDialog<String>(
+      context: context,
+      builder: (_) => const BarcodeScannerDialog(),
+    );
+    if (code == null || code.trim().isEmpty) return;
+    _serverErrors.remove('cod_barras');
+    setState(() => _codBarrasCtrl.text = code.trim());
+    final online = await _networkAccess.checkNetworkAcess();
+    if (!online) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Código lido, mas sem conexão para buscar o produto.'),
+        ),
+      );
+      return;
+    }
+    try {
+      final prod = await _produtoRepo.buscarPorCodigoBarras(code.trim());
+      if (prod != null) {
+        if (!mounted) return;
+        _aplicarProduto(prod);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Produto carregado pelo código de barras.')),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Código registrado. Preencha os demais dados.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao buscar detalhes: $e')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     if (kDebugMode) debugPrint('[EntradaMateriaisPage] dispose controllerHash=${identityHashCode(_ctrl)} pageHash=${identityHashCode(this)}');
@@ -583,22 +625,47 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                   children: [
                     // Linha superior: Código de Barras + Descrição
                     _buildSection([
-                      _buildField(TextFormField(
-                        controller: _codBarrasCtrl,
-                        readOnly: widget.materialId != null,
-                        enabled: widget.materialId == null,
-                        decoration: InputDecoration(
-                          labelText: 'Código de Barras *',
-                          border: const OutlineInputBorder(),
-                          errorText: _serverErrors['cod_barras'],
-                          helperText: widget.materialId != null ? 'Não editável após cadastro' : 'GTIN/EAN (se existir)',
-                        ),
-                        validator: (v) {
-                          if (_serverErrors['cod_barras'] != null) return _serverErrors['cod_barras'];
-                          if (widget.materialId != null) return null;
-                          if (v == null || v.trim().isEmpty) return 'Informe o código de barras';
-                          return null;
-                        },
+                      _buildField(Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _codBarrasCtrl,
+                              readOnly: widget.materialId != null,
+                              enabled: widget.materialId == null,
+                              decoration: InputDecoration(
+                                labelText: 'Código de Barras *',
+                                border: const OutlineInputBorder(),
+                                errorText: _serverErrors['cod_barras'],
+                                helperText: widget.materialId != null
+                                    ? 'Não editável após cadastro'
+                                    : 'GTIN/EAN (se existir)',
+                              ),
+                              validator: (v) {
+                                if (_serverErrors['cod_barras'] != null) {
+                                  return _serverErrors['cod_barras'];
+                                }
+                                if (widget.materialId != null) return null;
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Informe o código de barras';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 56,
+                            child: OutlinedButton.icon(
+                              onPressed: widget.materialId != null ? null : _scanCodigoBarras,
+                              icon: const Icon(Icons.qr_code_scanner),
+                              label: const Text('Ler'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                              ),
+                            ),
+                          ),
+                        ],
                       )),
                       _buildField(Column(
                         children: [
