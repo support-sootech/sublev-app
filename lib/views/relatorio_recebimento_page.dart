@@ -404,7 +404,7 @@ class _ItemWidget extends StatelessWidget {
     );
   }
 
-  Widget _info(String label, String? value, {bool highlight = false}) {
+  Widget _info(String label, String? value) {
     final raw = value?.trim() ?? '';
     final display = raw.isEmpty ? '—' : raw;
     return ConstrainedBox(
