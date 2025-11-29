@@ -144,7 +144,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
 
   Future<void> _preencherDetalhesProduto(String codigo) async {
     try {
-      final detalhes = await _produtoRepo.buscarDetalhesPorCodigoBarras(codigo);
+      final detalhes = await _produtoRepo.buscarPorCodigoBarras(codigo);
       if (detalhes == null) return;
       // Preencher dias de vencimento se campos vazios e dados disponíveis
       if (_diasVencCtrl.text.trim().isEmpty && detalhes.diasVencimento != null) {
