@@ -5,6 +5,7 @@ import 'package:ootech/views/etiqueta_avulsa_page.dart';
 import 'package:ootech/views/etiquetas_page.dart';
 import 'package:ootech/views/fracionar_page.dart';
 import 'package:ootech/views/materiais_list_page.dart';
+import 'package:ootech/views/relatorio_recebimento_page.dart';
 
 class MenuData {
   Future<List<MenuModel>> loadMenu() async {
@@ -50,6 +51,14 @@ class MenuData {
         title: "Entrada de Materiais",
         page: MateriaisListPage(),
         icon: Icons.input_outlined,
+      ),
+    );
+    menu.add(
+      MenuModel(
+        id: 6,
+        title: "Relat. Recebimento",
+        page: const RelatorioRecebimentoPage(),
+        icon: Icons.assignment_outlined,
       ),
     );
 

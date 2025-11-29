@@ -12,6 +12,7 @@ class DropdownOptionReactive extends StatelessWidget {
   final bool enabled;
   final String? hint;
   final String? errorText;
+  final FormFieldValidator<OptionModel?>? validator;
   final VoidCallback? onTapLoad; // chamado antes de abrir se precisar lazy load
   final RxBool? loadingRx; // exibe estado de carregamento se presente
 
@@ -24,6 +25,7 @@ class DropdownOptionReactive extends StatelessWidget {
     this.enabled = true,
     this.hint,
     this.errorText,
+    this.validator,
     this.onTapLoad,
     this.loadingRx,
   });
@@ -56,6 +58,7 @@ class DropdownOptionReactive extends StatelessWidget {
             debugLabel: label,
             hint: hint,
             errorText: errorText,
+            validator: validator,
             onTapLoad: onTapLoad,
             isLoading: isLoading,
           );
@@ -73,6 +76,7 @@ class _SelectionWrapper extends StatelessWidget {
   final String? debugLabel;
   final String? hint;
   final String? errorText;
+  final FormFieldValidator<OptionModel?>? validator;
   final VoidCallback? onTapLoad;
   final bool isLoading;
 
@@ -84,6 +88,7 @@ class _SelectionWrapper extends StatelessWidget {
     this.debugLabel,
     this.hint,
     this.errorText,
+    this.validator,
     this.onTapLoad,
     this.isLoading = false,
   });
@@ -133,6 +138,12 @@ class _SelectionWrapper extends StatelessWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           errorText: errorText,
         ),
+        validator: validator == null
+            ? null
+            : (val) {
+                final match = items.firstWhereOrNull((e) => e.id == val);
+                return validator!(match);
+              },
       );
     });
   }

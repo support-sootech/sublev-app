@@ -7,17 +7,58 @@ class MateriaisRepository {
   final DioCustom service = DioCustom();
 
   Future<List<MaterialModel>> listar({String status = ''}) async {
-    try {
-      final resp = await service.dio.get(
+    Future<Response<dynamic>> _fetchAppEndpoint() {
+      return service.dio.get(
         '/app-materiais',
         queryParameters: {'status': status},
       );
-      if (resp.statusCode == 200 && resp.data is Map) {
-        final Map data = resp.data;
+    }
+
+    Future<Response<dynamic>> _fetchLegacyEndpoint() {
+      return service.dio.get(
+        '/materiais-json',
+        queryParameters: {'status': status},
+      );
+    }
+
+    Future<Response<dynamic>> _fetchAppJsonEndpoint() {
+      return service.dio.get(
+        '/app-materiais-json',
+        queryParameters: {'status': status},
+      );
+    }
+
+    Response resp;
+    try {
+      resp = await _fetchAppEndpoint();
+      if (_isHtml404(resp)) {
+        resp = await _fetchAppJsonEndpoint();
+      }
+      if (_isHtml404(resp)) {
+        resp = await _fetchLegacyEndpoint();
+      }
+    } on DioException catch (e) {
+      if (_isHtml404(e.response)) {
+        try {
+          resp = await _fetchAppJsonEndpoint();
+          if (_isHtml404(resp)) {
+            resp = await _fetchLegacyEndpoint();
+          }
+        } catch (e2) {
+          resp = await _fetchLegacyEndpoint();
+        }
+      } else {
+        throw CustomException(message: e.message ?? 'Erro de rede');
+      }
+    }
+
+    if (resp.statusCode == 200) {
+      final data = resp.data;
+      if (data is Map) {
         if (data.containsKey('success') && data['success'] != true) {
           throw CustomException(
-            message: (data['msg'] ?? data['message'] ?? 'Erro no servidor')
-                .toString(),
+            message:
+                (data['msg'] ?? data['message'] ?? 'Erro no servidor').toString(),
           );
         }
         final payload = data['data'] ?? data;
@@ -27,11 +68,22 @@ class MateriaisRepository {
               .map((e) => MaterialModel.fromJson(Map<String, dynamic>.from(e)))
               .toList();
         }
+      } else if (data is List) {
+        return data
+            .whereType<Map>()
+            .map((e) => MaterialModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
       }
-    } on DioException catch (e) {
-      throw CustomException(message: e.message ?? 'Erro de rede');
     }
     return <MaterialModel>[];
+  }
+
+  bool _isHtml404(Response? resp) {
+    if (resp == null) return false;
+    final data = resp.data;
+    if (resp.statusCode == 404) return true;
+    if (data is String && data.contains('<html')) return true;
+    return false;
   }
 
   Future<bool> deletar(int id) async {

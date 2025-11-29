@@ -413,42 +413,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
       final df = DateFormat('dd/MM/yyyy');
       // Build payload with server-expected keys prefixed by 'material_'
       // Converte entrada livre para formato brasileiro de peso (vírgula decimal, sem milhar)
-      String _formatPesoBR(String s) {
-        String raw = s.trim();
-        if (raw.isEmpty) return '';
-        raw = raw.replaceAll(' ', '');
-        // Remove pontos de milhar (padrão 1.234.567) mantendo último separador decimal
-        raw = raw.replaceAll(RegExp(r'\.(?=\d{3}(?:\D|$))'), '');
-        int commaCount = RegExp(',').allMatches(raw).length;
-        int dotCount = RegExp('\.').allMatches(raw).length;
-        try {
-          if (commaCount == 0 && dotCount > 0) {
-            int first = raw.indexOf('.');
-            if (first >= 0 && first < raw.length - 1) {
-              final before = raw.substring(0, first);
-              final after = raw.substring(first + 1).replaceAll('.', '');
-              raw = '$before,$after';
-            }
-          } else if (commaCount > 1) {
-            int first = raw.indexOf(',');
-            if (first >= 0 && first < raw.length - 1) {
-              final before = raw.substring(0, first);
-              final after = raw.substring(first + 1).replaceAll(',', '');
-              raw = '$before,$after';
-            }
-          }
-        } catch (e) {
-          if (kDebugMode) debugPrint('[PESO][FORMAT] Exceção ajuste separador: $e raw="$raw"');
-        }
-        // Sanitiza: apenas dígitos e uma vírgula (se existir)
-        raw = raw.replaceAll(RegExp('[^0-9,]'), '');
-        // Evitar vírgula no final isolada
-        if (raw.endsWith(',') && raw.indexOf(',') == raw.length - 1) {
-          raw = raw.substring(0, raw.length - 1);
-        }
-        if (kDebugMode) debugPrint('[PESO][FORMAT] Entrada="$s" Saida="$raw"');
-        return raw;
-      }
+      String _formatPesoBR(String s) => s.trim();
       String _normalizeInt(String s) {
         var t = s.trim();
         if (t.isEmpty) return '';
@@ -626,8 +591,14 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                           labelText: 'Código de Barras *',
                           border: const OutlineInputBorder(),
                           errorText: _serverErrors['cod_barras'],
-                          helperText: widget.materialId != null ? 'Não editável após cadastro' : 'GTIN/EAN do produto (se disponível)',
+                          helperText: widget.materialId != null ? 'Não editável após cadastro' : 'GTIN/EAN (se existir)',
                         ),
+                        validator: (v) {
+                          if (_serverErrors['cod_barras'] != null) return _serverErrors['cod_barras'];
+                          if (widget.materialId != null) return null;
+                          if (v == null || v.trim().isEmpty) return 'Informe o código de barras';
+                          return null;
+                        },
                       )),
                       _buildField(Column(
                         children: [
@@ -637,7 +608,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                               labelText: 'Descrição do produto *',
                               border: const OutlineInputBorder(),
                               errorText: _serverErrors['descricao'],
-                              helperText: 'Digite para buscar produtos cadastrados (mín. 2 letras)'
+                              helperText: 'Busque pelo nome (mín. 2 letras)',
                             ),
                             validator: (v) {
                               if (_serverErrors['descricao'] != null) return _serverErrors['descricao'];
@@ -732,7 +703,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                           labelText: 'Qtd. dias até o vencimento',
                           border: const OutlineInputBorder(),
                           hintText: 'Ex.: 30',
-                          helperText: widget.materialId != null ? 'Não editável após cadastro' : 'Usado para calcular a data de validade;',
+                          helperText: widget.materialId != null ? 'Não editável após cadastro' : 'Base para cálculo da validade;',
                         ),
                         onChanged: (v) {
                           // Se já houver fabricação, recalcular validade automaticamente
@@ -740,6 +711,15 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                           if (_fabricacao != null && dias != null && dias >= 0) {
                             setState(() { _validade = _fabricacao!.add(Duration(days: dias)); });
                           }
+                        },
+                        validator: (v) {
+                          if (_serverErrors['dias_vencimento'] != null) return _serverErrors['dias_vencimento'];
+                          if (widget.materialId != null) return null;
+                          final valor = v?.trim() ?? '';
+                          if (valor.isEmpty) return 'Informe os dias até o vencimento';
+                          final parsed = int.tryParse(valor);
+                          if (parsed == null || parsed <= 0) return 'Informe um número válido';
+                          return null;
                         },
                       )),
                       _buildField(TextFormField(
@@ -760,6 +740,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                         selectedRx: _ctrl.categoriaSel,
                         hint: 'Selecione...',
                         errorText: _serverErrors['id_materiais_categorias'],
+                        validator: (_) => _ctrl.categoriaSel.value == null ? 'Selecione uma categoria' : null,
                         onChanged: (_) => _serverErrors.remove('id_materiais_categorias'),
                         onTapLoad: _ctrl.ensureCategoriasLoaded,
                         loadingRx: _ctrl.categoriasLoading,
@@ -808,17 +789,32 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
 
                     // Datas: Fabricação e Vencimento
                     _buildSection([
-                      _buildField(_buildDate(context, 'Data de Fabricação', _fabricacao, (d) {
-                        setState(() {
-                          _fabricacao = d;
-                          // Regra: se houver dias de vencimento informados, calcular automaticamente a validade
-                          final dias = int.tryParse(_diasVencCtrl.text.trim());
-                          if (_fabricacao != null && dias != null && dias >= 0) {
-                            _validade = _fabricacao!.add(Duration(days: dias));
-                          }
-                        });
-                      }, df, helper: 'Data em que o lote foi fabricado (opcional)')),
-                      _buildField(_buildDate(context, 'Data de Vencimento', _validade, (d) => setState(() => _validade = d), df, helper: 'Data de validade do lote (opcional)')),
+                      _buildField(_dateField(
+                        context: context,
+                        label: 'Data de Fabricação',
+                        value: _fabricacao,
+                        df: df,
+                        requiredField: true,
+                        helperText: 'Informe a data em que o lote foi fabricado',
+                        onPicked: (d) {
+                          setState(() {
+                            _fabricacao = d;
+                            final dias = int.tryParse(_diasVencCtrl.text.trim());
+                            if (_fabricacao != null && dias != null && dias >= 0) {
+                              _validade = _fabricacao!.add(Duration(days: dias));
+                            }
+                          });
+                        },
+                      )),
+                      _buildField(_dateField(
+                        context: context,
+                        label: 'Data de Vencimento',
+                        value: _validade,
+                        df: df,
+                        requiredField: true,
+                        helperText: 'Informe a validade do lote',
+                        onPicked: (d) => setState(() => _validade = d),
+                      )),
                     ]),
                     const SizedBox(height: 16),
 
@@ -827,7 +823,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                       _buildField(TextFormField(
                         controller: _pesoCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(labelText: 'Peso *', border: const OutlineInputBorder(), hintText: 'Ex.: 3,00', errorText: _serverErrors['peso'], helperText: 'Peso do item na unidade selecionada'),
+                        decoration: InputDecoration(labelText: 'Peso *', border: const OutlineInputBorder(), hintText: 'Ex.: 3,00', errorText: _serverErrors['peso'], helperText: 'Peso na unidade escolhida'),
                         validator: (v) {
                           if (_serverErrors['peso'] != null) return _serverErrors['peso'];
                           return (v == null || v.trim().isEmpty) ? 'Obrigatório' : null;
@@ -840,6 +836,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                         selectedRx: _ctrl.unidadeSel,
                         hint: 'Selecione...',
                         errorText: _serverErrors['id_unidades_medidas'],
+                        validator: (_) => _ctrl.unidadeSel.value == null ? 'Selecione a unidade' : null,
                         onChanged: (_) => _serverErrors.remove('id_unidades_medidas'),
                         onTapLoad: _ctrl.ensureUnidadesLoaded,
                         loadingRx: _ctrl.unidadesLoading,
@@ -854,7 +851,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                           border: const OutlineInputBorder(),
                           hintText: 'Ex.: 11',
                           errorText: _serverErrors['quantidade'],
-                          helperText: widget.materialId != null ? 'Não editável após cadastro' : 'Número de unidades neste registro',
+                          helperText: widget.materialId != null ? 'Não editável após cadastro' : 'Qtd total deste lote',
                         ),
                         validator: (v) {
                           if (_serverErrors['quantidade'] != null) return _serverErrors['quantidade'];
@@ -867,7 +864,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                           labelText: 'Lote *',
                           border: const OutlineInputBorder(),
                           errorText: _serverErrors['lote'],
-                          helperText: 'Informe o lote exatamente como consta na nota',
+                          helperText: 'Lote conforme nota fiscal',
                         ),
                         validator: (v) {
                           if (_serverErrors['lote'] != null) return _serverErrors['lote'];
@@ -876,7 +873,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                       )),
                       _buildField(TextFormField(
                         controller: _nroNotaCtrl,
-                        decoration: InputDecoration(labelText: 'Nota Fiscal', border: const OutlineInputBorder(), hintText: 'Ex.: 123456789', errorText: _serverErrors['nro_nota'], helperText: 'Número da nota fiscal associada à entrada (opcional)'),
+                        decoration: InputDecoration(labelText: 'Nota Fiscal', border: const OutlineInputBorder(), hintText: 'Ex.: 123456789', errorText: _serverErrors['nro_nota'], helperText: 'Número da nota (opcional)'),
                       )),
                     ]),
                     const SizedBox(height: 16),
@@ -886,12 +883,12 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                       _buildField(TextFormField(
                         controller: _temperaturaCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(labelText: 'Temperatura (°C)', border: const OutlineInputBorder(), hintText: 'Ex.: 10', errorText: _serverErrors['temperatura'], helperText: 'Temperatura de armazenamento recomendada para este lote (opcional)'),
+                        decoration: InputDecoration(labelText: 'Temperatura (°C)', border: const OutlineInputBorder(), hintText: 'Ex.: 10', errorText: _serverErrors['temperatura'], helperText: 'Temperatura de armazenamento (opcional)'),
                       )),
                       _buildField(TextFormField(
                         controller: _sifCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(labelText: 'SIF (registro)', border: const OutlineInputBorder(), hintText: 'Ex.: 11', errorText: _serverErrors['sif'], helperText: 'Registro SIF para inspeção sanitária (se aplicável)'),
+                        decoration: InputDecoration(labelText: 'SIF (registro)', border: const OutlineInputBorder(), hintText: 'Ex.: 11', errorText: _serverErrors['sif'], helperText: 'Registro SIF (se aplicável)'),
                       )),
                       _buildField(DropdownOptionReactive(
                         label: 'Condição da embalagem',
@@ -950,7 +947,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                             isExpanded: true,
                             items: const [
                               DropdownMenuItem(value: 'A', child: Text('Ativo')),
-                              DropdownMenuItem(value: 'D', child: Text('Inativo')),
+                              DropdownMenuItem(value: 'I', child: Text('Inativo')),
                             ],
                             onChanged: widget.materialId == null ? null : (v) => _statusSel.value = v ?? 'A',
                             decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
@@ -1000,20 +997,45 @@ Widget _buildSection(List<Widget> children) {
   });
 }
 
-Widget _buildDate(BuildContext context, String label, DateTime? value, ValueChanged<DateTime?> onPicked, DateFormat df, {String? helper}) {
-  return InkWell(
-    onTap: () async {
-      final picked = await showDatePicker(
-        context: context,
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2100),
-        initialDate: value ?? DateTime.now(),
-      );
-      if (picked != null) onPicked(picked);
+Widget _dateField({
+  required BuildContext context,
+  required String label,
+  required DateTime? value,
+  required ValueChanged<DateTime?> onPicked,
+  required DateFormat df,
+  bool requiredField = false,
+  String? helperText,
+}) {
+  return FormField<DateTime>(
+    validator: (_) {
+      if (requiredField && value == null) return 'Selecione $label';
+      return null;
     },
-    child: InputDecorator(
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), helperText: helper),
-      child: Text(value == null ? '—' : df.format(value)),
-    ),
+    builder: (state) {
+      final displayValue = value ?? state.value;
+      return InkWell(
+        onTap: () async {
+          final picked = await showDatePicker(
+            context: context,
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2100),
+            initialDate: displayValue ?? DateTime.now(),
+          );
+          if (picked != null) {
+            onPicked(picked);
+            state.didChange(picked);
+          }
+        },
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            helperText: helperText,
+            errorText: state.errorText,
+          ),
+          child: Text(displayValue == null ? '—' : df.format(displayValue)),
+        ),
+      );
+    },
   );
 }
