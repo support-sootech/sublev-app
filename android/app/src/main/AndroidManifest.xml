@@ -1,4 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="br.com.ootech.ootech">
 
     <!-- Permissões necessárias para comunicação com SmartPOS -->
     <uses-permission android:name="android.permission.INTERNET" />
