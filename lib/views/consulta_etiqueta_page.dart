@@ -187,7 +187,7 @@ class _ConsultaEtiquetaPageState extends State<ConsultaEtiquetaPage> {
                 SnackBar(
                   content: Center(
                     child: Text(
-                      "Etiqueta(s) ${status == 'C' ? "baixada" : "descartada"}(s) com sucesso!",
+                      "Etiqueta(s) ${status == 'V' ? "baixada" : "descartada"}(s) com sucesso!",
                     ),
                   ),
                   backgroundColor: Colors.green,

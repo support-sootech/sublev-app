@@ -42,10 +42,9 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
   bool _salvando = false;
   // Lista de etiquetas geradas para pré-visualização antes da impressão
   List<EtiquetaModel> _etiquetasPreview = [];
-  // Keys para captura das etiquetas renderizadas na tela
-  final List<GlobalKey> _etiquetasKeys = [];
   // Flag para impedir disparo múltiplo da impressão automática após setState/renderizações adicionais
   bool _impressaoAutomaticaDisparada = false;
+  Widget? _widgetImpressao;
 
   @override
   void initState() {
@@ -101,11 +100,7 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
         throw Exception('Nenhuma etiqueta retornada pelo servidor');
       }
       final etiquetas = resp.data.map(_mapToEtiqueta).toList();
-      // Armazena e cria keys para captura
       _etiquetasPreview = etiquetas;
-      _etiquetasKeys
-        ..clear()
-        ..addAll(List.generate(etiquetas.length, (_) => GlobalKey()));
       setState(() {});
       // Após renderização em tela, imprimir automaticamente
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -113,38 +108,7 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
         if (_impressaoAutomaticaDisparada) return;
         _impressaoAutomaticaDisparada = true;
         try {
-          final impressoraConectada =
-              impressorasController.getPrinterConnectionState.value ==
-                  PrinterConnectionState.connected;
-          if (!impressoraConectada) {
-            _showSnack('Conecte uma impressora para imprimir',
-                color: Colors.orange);
-            return; // será resetado no finally
-          }
-          // Reinicia fila antes de enfileirar novas etiquetas
-          impressorasController.resetFila();
-          int sucesso = 0;
-          // Delay inicial maior para garantir pintura completa da lista (reduz risco de captura em branco)
-          await Future.delayed(const Duration(milliseconds: 350));
-          for (int i = 0; i < _etiquetasPreview.length; i++) {
-            final key = _etiquetasKeys[i];
-            // Aguarda frame extra garantindo pintura completa
-            await Future.delayed(const Duration(milliseconds: 120));
-            await SchedulerBinding.instance.endOfFrame;
-            try {
-              final numEtiqueta = _etiquetasPreview[i].numEtiqueta;
-              await impressorasController.enviaEtiqueta(
-                  key: key, numEtiqueta: numEtiqueta);
-              sucesso++;
-            } catch (e) {
-              _showSnack('Falha impressão etiqueta ${i + 1}: ${_formatError(e)}');
-            }
-          }
-          if (sucesso > 0) {
-            _showSnack(
-                'Impressão automática concluída ($sucesso/${_etiquetasPreview.length})',
-                color: Colors.green);
-          }
+          await _imprimirSequencial();
         } finally {
           // Libera nova impressão automática em futuras criações
           _impressaoAutomaticaDisparada = false;
@@ -182,6 +146,49 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
       nmSetor: item.nmSetor,
       numEtiqueta: item.numEtiqueta,
     );
+  }
+
+  Future<void> _imprimirSequencial() async {
+    if (_etiquetasPreview.isEmpty) return;
+    final conectado =
+        impressorasController.getPrinterConnectionState.value ==
+            PrinterConnectionState.connected;
+    if (!conectado) {
+      _showSnack('Conecte uma impressora para imprimir', color: Colors.orange);
+      return;
+    }
+    for (final etiqueta in _etiquetasPreview) {
+      final key = GlobalKey();
+      setState(() {
+        _widgetImpressao =
+            impressorasController.getSizeLabelPrint.value == SizeLabelPrint.$50_x_50
+                ? Etiqueta50x50Widget(
+                    etiquetaModel: etiqueta,
+                    fgImprimir: true,
+                    globalKey: key,
+                    sizeLabelPrint: impressorasController.getSizeLabelPrint.value,
+                  )
+                : EtiquetaWidget(
+                    etiquetaModel: etiqueta,
+                    fgImprimir: true,
+                    globalKey: key,
+                    sizeLabelPrint: impressorasController.getSizeLabelPrint.value,
+                  );
+      });
+      await Future.delayed(const Duration(seconds: 1), () async {
+        try {
+          await impressorasController.enviaEtiqueta(
+            key: key,
+            numEtiqueta: etiqueta.numEtiqueta,
+          );
+        } catch (e) {
+          _showSnack('Falha impressão etiqueta: ${_formatError(e)}');
+        }
+      });
+    }
+    setState(() {
+      _widgetImpressao = null;
+    });
   }
 
   void _showSnack(String message, {Color color = Colors.red}) {
@@ -519,26 +526,34 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
                             final layout = impressorasController.getSizeLabelPrint.value;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: layout == SizeLabelPrint.$50_x_50
-                                  ? Etiqueta50x50Widget(
-                                      etiquetaModel: e,
-                                      fgImprimir: false,
-                                      globalKey: _etiquetasKeys[index],
-                                      sizeLabelPrint: layout,
-                                    )
-                                  : EtiquetaWidget(
-                                      etiquetaModel: e,
-                                      fgImprimir: false,
-                                      globalKey: _etiquetasKeys[index],
-                                      sizeLabelPrint: layout,
-                                    ),
-                            );
+                          child: layout == SizeLabelPrint.$50_x_50
+                              ? Etiqueta50x50Widget(
+                                  etiquetaModel: e,
+                                  fgImprimir: false,
+                                  globalKey: null,
+                                  sizeLabelPrint: layout,
+                                )
+                              : EtiquetaWidget(
+                                  etiquetaModel: e,
+                                  fgImprimir: false,
+                                  globalKey: null,
+                                  sizeLabelPrint: layout,
+                                ),
+                        );
                           }),
                         ],
                       ],
                     ),
                   ),
                   PrintingStatusOverlayWidget(controller: impressorasController),
+                  Positioned(
+                    left: -10000,
+                    top: -10000,
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width,
+                      child: _widgetImpressao ?? const SizedBox(),
+                    ),
+                  ),
                 ],
               ),
       ),
