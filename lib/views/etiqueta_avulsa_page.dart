@@ -99,7 +99,12 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
       if (!resp.success || resp.data.isEmpty) {
         throw Exception('Nenhuma etiqueta retornada pelo servidor');
       }
-      final etiquetas = resp.data.map(_mapToEtiqueta).toList();
+      final etiquetas = resp.data.map(_mapToEtiqueta).toList()
+        ..sort((a, b) {
+          final numA = a.numEtiqueta ?? 0;
+          final numB = b.numEtiqueta ?? 0;
+          return numA.compareTo(numB);
+        });
       _etiquetasPreview = etiquetas;
       setState(() {});
       // Após renderização em tela, imprimir automaticamente
@@ -157,6 +162,7 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
       _showSnack('Conecte uma impressora para imprimir', color: Colors.orange);
       return;
     }
+    bool algumSucesso = false;
     for (final etiqueta in _etiquetasPreview) {
       final key = GlobalKey();
       setState(() {
@@ -181,6 +187,7 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
             key: key,
             numEtiqueta: etiqueta.numEtiqueta,
           );
+          algumSucesso = true;
         } catch (e) {
           _showSnack('Falha impressão etiqueta: ${_formatError(e)}');
         }
@@ -189,6 +196,18 @@ class _EtiquetaAvulsaPageState extends State<EtiquetaAvulsaPage> {
     setState(() {
       _widgetImpressao = null;
     });
+    if (algumSucesso) {
+      _limparFormulario();
+    }
+  }
+
+  void _limparFormulario() {
+    _descricaoCtrl.clear();
+    _pesoCtrl.clear();
+    _validade = null;
+    _quantidade.value = 1;
+    _etiquetasPreview = [];
+    setState(() {});
   }
 
   void _showSnack(String message, {Color color = Colors.red}) {
