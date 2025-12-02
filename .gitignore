@@ -28,6 +28,7 @@ migrate_working_dir/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
+".flutter-plugins-dependencies 2"
 .pub-cache/
 .pub/
 /build/
@@ -47,3 +48,7 @@ app.*.map.json
 # Local assistant configs
 .assistant-config.json
 .assistant-knowledge.json
+# Environment configs
+.env.development
+.env.production
+cookies.txt
