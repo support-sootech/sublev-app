@@ -13,9 +13,9 @@ class MenuData {
     menu.add(
       MenuModel(
         id: 1,
-        title: "Consultar",
+        title: "Baixar/Descartar",
         page: ConsultaEtiquetaPage(),
-        icon: Icons.search_outlined,
+        icon: Icons.save_alt,
       ),
     );
     menu.add(
@@ -30,9 +30,9 @@ class MenuData {
     menu.add(
       MenuModel(
         id: 3,
-        title: "Etiquetas",
+        title: "Visualizar Etiquetas",
         page: EtiquetasPage(),
-        icon: Icons.print_outlined,
+        icon: Icons.search_outlined,
       ),
     );
 
