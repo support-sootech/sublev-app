@@ -164,12 +164,30 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
       if (detalhes.idModoConservacao != null) {
         _selectById(_ctrl.modosConservacao, _ctrl.modoConservacaoSel, detalhes.idModoConservacao);
       }
+      // Selecionar Fornecedor
+      if (detalhes.idPessoasFornecedor != null) {
+        _selectById(_ctrl.fornecedores, _ctrl.fornecedorSel, detalhes.idPessoasFornecedor);
+      }
+      // Selecionar Fabricante
+      if (detalhes.idPessoasFabricante != null) {
+        _selectById(_ctrl.fabricantes, _ctrl.fabricanteSel, detalhes.idPessoasFabricante);
+      }
+      // Selecionar Marca
+      if (detalhes.idMateriaisMarcas != null) {
+        _selectById(_ctrl.marcas, _ctrl.marcaSel, detalhes.idMateriaisMarcas);
+      }
+      // Selecionar Categoria
+      if (detalhes.idMateriaisCategorias != null) {
+        _selectById(_ctrl.categorias, _ctrl.categoriaSel, detalhes.idMateriaisCategorias);
+      }
       // Calcular validade automática se fabricação + dias vencimento disponíveis
       if (_fabricacao != null && detalhes.diasVencimento != null) {
         setState(() { _validade = _fabricacao!.add(Duration(days: detalhes.diasVencimento!)); });
       } else {
         setState(() {});
       }
+      // Bloquear campos que vieram do catálogo
+      _ctrl.lockFields(true);
     } catch (_) {}
   }
 
@@ -191,6 +209,8 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
       try {
         await _ctrl.forceReloadCombos();
         await _loadExisting(widget.materialId!);
+        // Bloquear campos em modo edição (assim como na Web)
+        _ctrl.lockFields(true);
         if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap edição concluído (tudo carregado)');
       } catch (e) {
         if (kDebugMode) debugPrint('[EntradaMateriaisPage] Erro bootstrap edição: $e');
@@ -423,6 +443,15 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
     }
   }
 
+  void _calcularValidade() {
+    final dias = int.tryParse(_diasVencCtrl.text.trim());
+    if (_fabricacao != null && dias != null && dias >= 0) {
+      setState(() { _validade = _fabricacao!.add(Duration(days: dias)); });
+    } else {
+      setState(() { _validade = null; });
+    }
+  }
+
   @override
   void dispose() {
     if (kDebugMode) debugPrint('[EntradaMateriaisPage] dispose controllerHash=${identityHashCode(_ctrl)} pageHash=${identityHashCode(this)}');
@@ -636,15 +665,14 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: TextFormField(
+                            child: Obx(() => TextFormField(
                               controller: _codBarrasCtrl,
-                              readOnly: widget.materialId != null,
-                              enabled: widget.materialId == null,
+                              enabled: !_ctrl.codBarrasLocked.value,
                               decoration: InputDecoration(
                                 labelText: 'Código de Barras *',
                                 border: const OutlineInputBorder(),
                                 errorText: _serverErrors['cod_barras'],
-                                helperText: widget.materialId != null
+                                helperText: _ctrl.codBarrasLocked.value
                                     ? 'Não editável após cadastro'
                                     : 'GTIN/EAN (se existir)',
                               ),
@@ -652,19 +680,19 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                                 if (_serverErrors['cod_barras'] != null) {
                                   return _serverErrors['cod_barras'];
                                 }
-                                if (widget.materialId != null) return null;
+                                if (_ctrl.codBarrasLocked.value) return null;
                                 if (v == null || v.trim().isEmpty) {
                                   return 'Informe o código de barras';
                                 }
                                 return null;
                               },
-                            ),
+                            )),
                           ),
                           const SizedBox(width: 8),
                           SizedBox(
                             height: 56,
                             child: OutlinedButton.icon(
-                              onPressed: widget.materialId != null ? null : _scanCodigoBarras,
+                              onPressed: _ctrl.codBarrasLocked.value ? null : _scanCodigoBarras,
                               icon: const Icon(Icons.qr_code_scanner),
                               label: const Text('Ler'),
                               style: OutlinedButton.styleFrom(
@@ -676,8 +704,9 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                       )),
                       _buildField(Column(
                         children: [
-                          TextFormField(
+                          Obx(() => TextFormField(
                             controller: _nomeCtrl,
+                            enabled: !_ctrl.descricaoLocked.value,
                             decoration: InputDecoration(
                               labelText: 'Descrição do produto *',
                               border: const OutlineInputBorder(),
@@ -704,7 +733,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                                 }
                               }
                             },
-                          ),
+                          )),
                           if (_loadingSugestoes)
                             Container(
                               margin: const EdgeInsets.only(top: 4),
@@ -768,16 +797,15 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
 
                     // Dias vencimento, dias venc. aberto, categoria
                     _buildSection([
-                      _buildField(TextFormField(
+                      _buildField(Obx(() => TextFormField(
                         controller: _diasVencCtrl,
-                        readOnly: widget.materialId != null,
-                        enabled: widget.materialId == null,
+                        enabled: !_ctrl.diasVencimentoLocked.value,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: 'Qtd. dias até o vencimento',
                           border: const OutlineInputBorder(),
                           hintText: 'Ex.: 30',
-                          helperText: widget.materialId != null ? 'Não editável após cadastro' : 'Base para cálculo da validade;',
+                          helperText: _ctrl.diasVencimentoLocked.value ? 'Preenchido pelo catálogo' : 'Base para cálculo da validade;',
                         ),
                         onChanged: (v) {
                           // Se já houver fabricação, recalcular validade automaticamente
@@ -788,75 +816,78 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                         },
                         validator: (v) {
                           if (_serverErrors['dias_vencimento'] != null) return _serverErrors['dias_vencimento'];
-                          if (widget.materialId != null) return null;
+                          if (_ctrl.diasVencimentoLocked.value) return null;
                           final valor = v?.trim() ?? '';
                           if (valor.isEmpty) return 'Informe os dias até o vencimento';
                           final parsed = int.tryParse(valor);
                           if (parsed == null || parsed <= 0) return 'Informe um número válido';
                           return null;
                         },
-                      )),
-                      _buildField(TextFormField(
+                      ))),
+                      _buildField(Obx(() => TextFormField(
                         controller: _diasVencAbertoCtrl,
-                        readOnly: widget.materialId != null,
-                        enabled: widget.materialId == null,
+                        enabled: !_ctrl.diasVencimentoAbertoLocked.value,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: 'Qtd. dias venc. aberto',
                           border: const OutlineInputBorder(),
                           hintText: 'Ex.: 30',
-                          helperText: widget.materialId != null ? 'Não editável após cadastro' : null,
+                          helperText: _ctrl.diasVencimentoAbertoLocked.value ? 'Preenchido pelo catálogo' : null,
                         ),
-                      )),
-                      _buildField(DropdownOptionReactive(
+                      ))),
+                      _buildField(Obx(() => DropdownOptionReactive(
                         label: 'Categoria',
                         itemsRx: _ctrl.categorias,
                         selectedRx: _ctrl.categoriaSel,
+                        enabled: !_ctrl.categoriaLocked.value,
                         hint: 'Selecione...',
                         errorText: _serverErrors['id_materiais_categorias'],
                         validator: (_) => _ctrl.categoriaSel.value == null ? 'Selecione uma categoria' : null,
                         onChanged: (_) => _serverErrors.remove('id_materiais_categorias'),
                         onTapLoad: _ctrl.ensureCategoriasLoaded,
                         loadingRx: _ctrl.categoriasLoading,
-                      )),
+                      ))),
                     ]),
                     const SizedBox(height: 16),
 
                     _buildSection([
-                      _buildField(DropdownOptionReactive(
+                      _buildField(Obx(() => DropdownOptionReactive(
                         label: 'Fornecedor',
                         itemsRx: _ctrl.fornecedores,
                         selectedRx: _ctrl.fornecedorSel,
+                        enabled: !_ctrl.fornecedorLocked.value,
                         onChanged: (_) => _serverErrors.remove('id_pessoas_fornecedor'),
                         hint: 'Selecione...',
                         errorText: _serverErrors['id_pessoas_fornecedor'] ?? _serverErrors['fornecedor'],
                         onTapLoad: _ctrl.ensureFornecedoresLoaded,
                         loadingRx: _ctrl.fornecedoresLoading,
-                      )),
-                      _buildField(DropdownOptionReactive(
+                      ))),
+                      _buildField(Obx(() => DropdownOptionReactive(
                         label: 'Fabricante',
                         itemsRx: _ctrl.fabricantes,
                         selectedRx: _ctrl.fabricanteSel,
+                        enabled: !_ctrl.fabricanteLocked.value,
                         onChanged: (_) => _serverErrors.remove('id_pessoas_fabricante'),
                         hint: 'Selecione...',
                         errorText: _serverErrors['id_pessoas_fabricante'] ?? _serverErrors['fabricante'],
                         onTapLoad: _ctrl.ensureFabricantesLoaded,
                         loadingRx: _ctrl.fabricantesLoading,
-                      )),
+                      ))),
                     ]),
                     const SizedBox(height: 16),
 
                     _buildSection([
-                      _buildField(DropdownOptionReactive(
+                      _buildField(Obx(() => DropdownOptionReactive(
                         label: 'Marca',
                         itemsRx: _ctrl.marcas,
                         selectedRx: _ctrl.marcaSel,
+                        enabled: !_ctrl.marcaLocked.value,
                         hint: 'Selecione...',
                         errorText: _serverErrors['id_materiais_marcas'],
                         onChanged: (_) => _serverErrors.remove('id_materiais_marcas'),
                         onTapLoad: _ctrl.ensureMarcasLoaded,
                         loadingRx: _ctrl.marcasLoading,
-                      )),
+                      ))),
                     ]),
                     const SizedBox(height: 16),
 

@@ -47,6 +47,27 @@ class EntradaMateriaisController extends GetxController {
   final RxBool unidadesLoading = false.obs;
   final RxBool modosLoading = false.obs;
 
+  // Controle de bloqueio de campos (preenchidos via catálogo)
+  final RxBool diasVencimentoLocked = false.obs;
+  final RxBool diasVencimentoAbertoLocked = false.obs;
+  final RxBool codBarrasLocked = false.obs;
+  final RxBool descricaoLocked = false.obs;
+  final RxBool fornecedorLocked = false.obs;
+  final RxBool fabricanteLocked = false.obs;
+  final RxBool marcaLocked = false.obs;
+  final RxBool categoriaLocked = false.obs;
+
+  void lockFields(bool locked) {
+    diasVencimentoLocked.value = locked;
+    diasVencimentoAbertoLocked.value = locked;
+    codBarrasLocked.value = locked;
+    descricaoLocked.value = locked;
+    fornecedorLocked.value = locked;
+    fabricanteLocked.value = locked;
+    marcaLocked.value = locked;
+    categoriaLocked.value = locked;
+  }
+
   Future<void> loadCombos() async {
     final t0 = DateTime.now();
     if (_loadingCombos) {
