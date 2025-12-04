@@ -146,26 +146,26 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
     try {
       final detalhes = await _produtoRepo.buscarPorCodigoBarras(codigo);
       if (detalhes == null) return;
-      // Preencher dias de vencimento se campos vazios e dados disponíveis
-      if (_diasVencCtrl.text.trim().isEmpty && detalhes.diasVencimento != null) {
+      // Preencher dias de vencimento (sobrescreve valor atual para garantir sincronia com catálogo)
+      if (detalhes.diasVencimento != null) {
         _diasVencCtrl.text = detalhes.diasVencimento.toString();
       }
-      if (_diasVencAbertoCtrl.text.trim().isEmpty && detalhes.diasVencimentoAberto != null) {
+      if (detalhes.diasVencimentoAberto != null) {
         _diasVencAbertoCtrl.text = detalhes.diasVencimentoAberto.toString();
       }
-      if (_pesoCtrl.text.trim().isEmpty && detalhes.peso != null) {
+      if (detalhes.peso != null) {
         _pesoCtrl.text = detalhes.peso.toString();
       }
       // Selecionar unidade de medida se disponível
-      if (detalhes.idUnidadesMedidas != null && _ctrl.unidadeSel.value == null) {
+      if (detalhes.idUnidadesMedidas != null) {
         _selectById(_ctrl.unidades, _ctrl.unidadeSel, detalhes.idUnidadesMedidas);
       }
       // Selecionar modo de conservação
-      if (detalhes.idModoConservacao != null && _ctrl.modoConservacaoSel.value == null) {
+      if (detalhes.idModoConservacao != null) {
         _selectById(_ctrl.modosConservacao, _ctrl.modoConservacaoSel, detalhes.idModoConservacao);
       }
       // Calcular validade automática se fabricação + dias vencimento disponíveis
-      if (_fabricacao != null && _validade == null && detalhes.diasVencimento != null) {
+      if (_fabricacao != null && detalhes.diasVencimento != null) {
         setState(() { _validade = _fabricacao!.add(Duration(days: detalhes.diasVencimento!)); });
       } else {
         setState(() {});
@@ -329,6 +329,13 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
             _statusSel.value = data['status'] as String;
           } catch (_) {}
         }
+
+        // Sincronia com Catálogo: Se houver código de barras, buscar dados atualizados do produto
+        // e sobrescrever os detalhes (dias vencimento, peso, etc) para refletir alterações recentes no cadastro.
+        if (_codBarrasCtrl.text.isNotEmpty) {
+          await _preencherDetalhesProduto(_codBarrasCtrl.text);
+        }
+
       } else {
         final msg = resp['msg'] ?? 'Não foi possível carregar o registro para edição';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
