@@ -6,7 +6,6 @@ class ProdutoModel {
   final double? peso;
   final int? idUnidadesMedidas;
   final int? idModoConservacao;
-  final int? idPessoasFornecedor;
   final int? idPessoasFabricante;
   final int? idMateriaisMarcas;
   final int? idMateriaisCategorias;
@@ -19,7 +18,6 @@ class ProdutoModel {
     this.peso,
     this.idUnidadesMedidas,
     this.idModoConservacao,
-    this.idPessoasFornecedor,
     this.idPessoasFabricante,
     this.idMateriaisMarcas,
     this.idMateriaisCategorias,
@@ -46,7 +44,6 @@ class ProdutoModel {
       peso: parseDouble(json['peso']),
       idUnidadesMedidas: parseInt(json['id_unidades_medidas']),
       idModoConservacao: parseInt(json['id_modo_conservacao']),
-      idPessoasFornecedor: parseInt(json['id_pessoas_fornecedor']),
       idPessoasFabricante: parseInt(json['id_pessoas_fabricante']),
       idMateriaisMarcas: parseInt(json['id_materiais_marcas']),
       idMateriaisCategorias: parseInt(json['id_materiais_categorias']),

@@ -40,18 +40,13 @@ class ProdutoRepository {
     if (!connected) return null;
 
     try {
-      final resp = await service.dio.post(
-        '/prod-autocomplete-json',
-        data: {
-          'flagListaCampo': 'C',
-          'campo': codigo.trim(),
-        },
+      final resp = await service.dio.get(
+        '/produtos-busca-codigo-barras/${codigo.trim()}',
       );
-      final payload = resp.data is Map ? resp.data['data'] : resp.data;
-      if (payload is List && payload.isNotEmpty) {
-        final first = payload.first;
-        if (first is Map) {
-          return ProdutoModel.fromJson(Map<String, dynamic>.from(first));
+      if (resp.data is Map && resp.data['success'] == true) {
+        final payload = resp.data['data'];
+        if (payload is Map) {
+          return ProdutoModel.fromJson(Map<String, dynamic>.from(payload));
         }
       }
     } catch (e) {

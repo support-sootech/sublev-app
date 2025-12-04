@@ -144,6 +144,8 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
 
   Future<void> _preencherDetalhesProduto(String codigo) async {
     try {
+      // Desbloquear temporariamente para garantir atualização visual
+      _ctrl.lockFields(false);
       final detalhes = await _produtoRepo.buscarPorCodigoBarras(codigo);
       if (detalhes == null) return;
       // Preencher dias de vencimento (sobrescreve valor atual para garantir sincronia com catálogo)
@@ -164,10 +166,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
       if (detalhes.idModoConservacao != null) {
         _selectById(_ctrl.modosConservacao, _ctrl.modoConservacaoSel, detalhes.idModoConservacao);
       }
-      // Selecionar Fornecedor
-      if (detalhes.idPessoasFornecedor != null) {
-        _selectById(_ctrl.fornecedores, _ctrl.fornecedorSel, detalhes.idPessoasFornecedor);
-      }
+      // Selecionar Fornecedor: NÃO preencher do catálogo (não existe na tabela tb_produtos)
       // Selecionar Fabricante
       if (detalhes.idPessoasFabricante != null) {
         _selectById(_ctrl.fabricantes, _ctrl.fabricanteSel, detalhes.idPessoasFabricante);
@@ -198,6 +197,8 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
     // Usa instância já registrada via lazyPut em main (fenix true) para evitar múltiplos Get.put.
     _ctrl = Get.find<EntradaMateriaisController>();
     if (kDebugMode) debugPrint('[EntradaMateriaisPage] initState controllerHash=${identityHashCode(_ctrl)} pageHash=${identityHashCode(this)}');
+    // Resetar bloqueios ao entrar na tela (garante estado limpo se controller for reutilizado)
+    _ctrl.lockFields(false);
     _bootstrap();
   }
 
@@ -665,34 +666,34 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Obx(() => TextFormField(
+                            child: TextFormField(
                               controller: _codBarrasCtrl,
-                              enabled: !_ctrl.codBarrasLocked.value,
                               decoration: InputDecoration(
                                 labelText: 'Código de Barras *',
                                 border: const OutlineInputBorder(),
                                 errorText: _serverErrors['cod_barras'],
-                                helperText: _ctrl.codBarrasLocked.value
-                                    ? 'Não editável após cadastro'
+                                helperText: widget.materialId != null
+                                    ? 'Não editável na edição'
                                     : 'GTIN/EAN (se existir)',
                               ),
+                              readOnly: widget.materialId != null,
+                              enabled: widget.materialId == null,
                               validator: (v) {
                                 if (_serverErrors['cod_barras'] != null) {
                                   return _serverErrors['cod_barras'];
                                 }
-                                if (_ctrl.codBarrasLocked.value) return null;
                                 if (v == null || v.trim().isEmpty) {
                                   return 'Informe o código de barras';
                                 }
                                 return null;
                               },
-                            )),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           SizedBox(
                             height: 56,
                             child: OutlinedButton.icon(
-                              onPressed: _ctrl.codBarrasLocked.value ? null : _scanCodigoBarras,
+                              onPressed: _scanCodigoBarras,
                               icon: const Icon(Icons.qr_code_scanner),
                               label: const Text('Ler'),
                               style: OutlinedButton.styleFrom(
@@ -704,9 +705,8 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                       )),
                       _buildField(Column(
                         children: [
-                          Obx(() => TextFormField(
+                          TextFormField(
                             controller: _nomeCtrl,
-                            enabled: !_ctrl.descricaoLocked.value,
                             decoration: InputDecoration(
                               labelText: 'Descrição do produto *',
                               border: const OutlineInputBorder(),
@@ -733,7 +733,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                                 }
                               }
                             },
-                          )),
+                          ),
                           if (_loadingSugestoes)
                             Container(
                               margin: const EdgeInsets.only(top: 4),
@@ -851,17 +851,16 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
                     const SizedBox(height: 16),
 
                     _buildSection([
-                      _buildField(Obx(() => DropdownOptionReactive(
+                      _buildField(DropdownOptionReactive(
                         label: 'Fornecedor',
                         itemsRx: _ctrl.fornecedores,
                         selectedRx: _ctrl.fornecedorSel,
-                        enabled: !_ctrl.fornecedorLocked.value,
                         onChanged: (_) => _serverErrors.remove('id_pessoas_fornecedor'),
                         hint: 'Selecione...',
                         errorText: _serverErrors['id_pessoas_fornecedor'] ?? _serverErrors['fornecedor'],
                         onTapLoad: _ctrl.ensureFornecedoresLoaded,
                         loadingRx: _ctrl.fornecedoresLoading,
-                      ))),
+                      )),
                       _buildField(Obx(() => DropdownOptionReactive(
                         label: 'Fabricante',
                         itemsRx: _ctrl.fabricantes,
