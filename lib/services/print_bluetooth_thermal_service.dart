@@ -137,7 +137,7 @@ class PrintBluetoothThermalService {
 
   /// Imprime etiqueta em impressora térmica ESC/POS (não Niimbot).
   /// [highContrast]: aplica binarização agressiva na logo.
-  Future<void> imprimirEtiqueta({required EtiquetaModel etiqueta, bool highContrast = true}) async {
+  Future<void> imprimirEtiqueta({required EtiquetaModel etiqueta}) async {
     bool conexionStatus = await PrintBluetoothThermal.connectionStatus;
 
     if (conexionStatus) {
@@ -147,15 +147,12 @@ class PrintBluetoothThermalService {
       final generator = Generator(PaperSize.mm58, profile);
       bytes += generator.reset();
 
-      // Título mais destacado (duplo altura) para ganhar densidade de pontos
       bytes += generator.text(
         removerAcentuacoes("${etiqueta.descricao}"),
         styles: PosStyles(
           bold: true,
           codeTable: 'CP437',
-          fontType: PosFontType.fontA,
-          height: PosTextSize.size2,
-          width: PosTextSize.size2,
+          fontType: PosFontType.fontA, // Fonte menor
           align: PosAlign.center,
           underline: true,
         ),
@@ -164,21 +161,21 @@ class PrintBluetoothThermalService {
 
       bytes += generator.row([
         PosColumn(
-          text: 'Val:${etiqueta.dtVencimentoReduzido}',
+          text: 'Validade:${etiqueta.dtVencimentoReduzido}',
           width: 6,
           styles: PosStyles(
             align: PosAlign.left,
             bold: true,
-            fontType: PosFontType.fontA,
+            fontType: PosFontType.fontB,
           ),
         ),
         PosColumn(
-          text: 'Man:${etiqueta.dtFracionamentoReduzido}',
+          text: 'Manipulado:${etiqueta.dtFracionamentoReduzido}',
           width: 6,
           styles: PosStyles(
             align: PosAlign.right,
             bold: true,
-            fontType: PosFontType.fontA,
+            fontType: PosFontType.fontB,
           ),
         ),
       ]);
@@ -189,8 +186,8 @@ class PrintBluetoothThermalService {
           width: 9,
           styles: PosStyles(
             align: PosAlign.left,
-            bold: true,
-            fontType: PosFontType.fontA,
+            bold: false,
+            fontType: PosFontType.fontB,
           ),
         ),
         PosColumn(
@@ -198,33 +195,33 @@ class PrintBluetoothThermalService {
           width: 3,
           styles: PosStyles(
             align: PosAlign.right,
-            bold: true,
-            fontType: PosFontType.fontA,
+            bold: false,
+            fontType: PosFontType.fontB,
           ),
         ),
       ]);
 
       bytes += generator.text(
         '${etiqueta.dsModoConservacao}',
-        styles: PosStyles(fontType: PosFontType.fontA, bold: true),
+        styles: PosStyles(fontType: PosFontType.fontB),
       );
 
       bytes += generator.text(
         'Resp: ${etiqueta.nmPessoaAbreviado}',
-        styles: PosStyles(fontType: PosFontType.fontA, bold: true),
+        styles: PosStyles(fontType: PosFontType.fontB),
       );
       //bytes += generator.feed(0);
 
       bytes += generator.text(
         '${etiqueta.idEtiquetas}',
-        styles: PosStyles(fontType: PosFontType.fontA, bold: true, align: PosAlign.center),
+        styles: PosStyles(fontType: PosFontType.fontB, align: PosAlign.center),
       );
 
       // QR Code - verificação e limpeza da string
       bytes += generator.qrcode(
         "${etiqueta.idEtiquetas.toString().trim()}",
         align: PosAlign.center,
-        size: QRSize.Size4,
+        size: QRSize.Size3,
       );
 
       try {
@@ -239,39 +236,12 @@ class PrintBluetoothThermalService {
           img.Image resizedImage = img.copyResize(originalImage, width: 75);
           // Converter para escala de cinza para melhor qualidade na impressão térmica
           img.Image grayscaleImage = img.grayscale(resizedImage);
-          if (highContrast) {
-            // Binariza a imagem: preto/branco com threshold adaptativo
-            int sum = 0;
-            for (int y = 0; y < grayscaleImage.height; y++) {
-              for (int x = 0; x < grayscaleImage.width; x++) {
-                final p = grayscaleImage.getPixel(x, y);
-                sum += img.getRed(p);
-              }
-            }
-            final avg = sum / (grayscaleImage.width * grayscaleImage.height);
-            final thresh = (avg - 25).clamp(60, 160); // agressivo para escurecer
-            for (int y = 0; y < grayscaleImage.height; y++) {
-              for (int x = 0; x < grayscaleImage.width; x++) {
-                final p = grayscaleImage.getPixel(x, y);
-                final l = img.getRed(p);
-                if (l < thresh) {
-                  grayscaleImage.setPixelRgba(x, y, 0, 0, 0, 255);
-                } else {
-                  grayscaleImage.setPixelRgba(x, y, 255, 255, 255, 255);
-                }
-              }
-            }
-          }
-          // Garantir fallback seguro: se imagem ficou toda branca/preta, logar
-          int black = 0, white = 0;
-          for (int y = 0; y < grayscaleImage.height; y++) {
-            for (int x = 0; x < grayscaleImage.width; x++) {
-              final p = grayscaleImage.getPixel(x, y);
-              if (img.getRed(p) == 0) black++; else white++;
-            }
-          }
-          debugPrint('[THERMAL] Logo binarizada: preto=[1m$black[0m branco=[1m$white[0m');
-          bytes += generator.imageRaster(grayscaleImage, align: PosAlign.center, highDensityHorizontal: true, highDensityVertical: true);
+          // Adicionar a imagem aos bytes
+          //bytes += generator.image(grayscaleImage, align: PosAlign.center);
+          bytes += generator.imageRaster(
+            grayscaleImage,
+            align: PosAlign.center,
+          );
         }
       } catch (e) {
         debugPrint("Erro ao carregar/processar a imagem: $e");
@@ -284,7 +254,6 @@ class PrintBluetoothThermalService {
       // Enviar dados para impressora
       //bytes += generator.cut();
 
-      debugPrint('[THERMAL] bytes enviados=${bytes.length} etiquetas=${etiqueta.idEtiquetas}');
       await PrintBluetoothThermal.writeBytes(bytes);
     }
   }
