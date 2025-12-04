@@ -32,15 +32,17 @@ class NiimbotPrintBluetoothThermalService {
       }
     // Redimensiona a imagem para o tamanho correto da etiqueta (igual main)
     Future<ui.Image> resizeImage(ui.Image image, double targetWidth, double targetHeight) async {
+      debugPrint("INICIO RESIZE IMAGE: ${DateTime.now()}");
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
       final paint = Paint();
-      canvas.drawRect(Rect.fromLTWH(0, 0, targetWidth, targetHeight), Paint()..color = Colors.white);
       final scaleX = targetWidth / image.width;
       final scaleY = targetHeight / image.height;
       canvas.scale(scaleX, scaleY);
       canvas.drawImage(image, Offset.zero, paint);
-      return await recorder.endRecording().toImage(targetWidth.toInt(), targetHeight.toInt());
+      final resizedImage = await recorder.endRecording().toImage(targetWidth.toInt(), targetHeight.toInt());
+      debugPrint("FINAL RESIZE IMAGE: ${DateTime.now()}");
+      return resizedImage;
     }
   NiimbotPrintBluetoothThermalService();
   // Utilitário para carregar imagem de asset (igual main)
@@ -54,7 +56,7 @@ class NiimbotPrintBluetoothThermalService {
   }
 
   // Densidade padrão (main branch)
-  static const int _defaultDensity = 2; // densidade máxima real do B1
+  static const int _defaultDensity = 2;
   int _currentDensity = _defaultDensity;
   final NiimbotLabelPrinter _niimbotLabelPrinterPlugin = NiimbotLabelPrinter();
   Future<bool> printEtiqueta({
@@ -62,17 +64,18 @@ class NiimbotPrintBluetoothThermalService {
     required SizeLabelPrint sizeLabelPrint,
     int? overrideDensity,
   }) async {
-    final bool connected = await _niimbotLabelPrinterPlugin.isConnected();
-    if (!connected) throw CustomException(message: 'Impressora não conectada');
     try {
+      debugPrint("INICIO FUNÇÃO IMPRESSÃO ETIQUETA: ${DateTime.now()}");
       final Map<String, dynamic> sizeMap = sizeLabelPrint.toSizeLabelPrintValues;
-      // Redimensiona a imagem para o tamanho correto da etiqueta
+      debugPrint(
+        "IMAGEM SIZE: ${sizeMap['width']} x ${sizeMap['height']}",
+      );
       final ui.Image resizedImage = await resizeImage(
         imageEtiqueta,
         sizeMap['width'],
         sizeMap['height'],
       );
-      final ByteData? byteData = await resizedImage.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final ByteData? byteData = await resizedImage.toByteData();
       if (byteData == null) return false;
       final List<int> bytesImage = byteData.buffer.asUint8List().toList();
       final int density = (overrideDensity ?? _currentDensity).clamp(1, 5);
@@ -87,10 +90,10 @@ class NiimbotPrintBluetoothThermalService {
       };
       final PrintData printData = PrintData.fromMap(dadosImagem);
       final bool result = await _niimbotLabelPrinterPlugin.send(printData);
-      debugPrint('[PRINT][main] Etiqueta enviada para plugin. Tamanho: ${resizedImage.width}x${resizedImage.height}, densidade: $density, resultado: $result');
+      debugPrint("FINAL IMPRESSAO: ${DateTime.now()}");
       return result;
     } catch (e) {
-      debugPrint('[PRINT][erro][main] printEtiqueta: $e');
+      debugPrint("ERRO: $e");
       return false;
     }
   }

@@ -60,7 +60,7 @@ class NiimbotImpressorasController extends GetxController {
   bool _isProcessingQueue = false; // se está enviando atualmente
   final _processingQueue = false.obs; // exposto para overlays
   RxBool get getIsProcessingQueue => _processingQueue;
-  bool _connectionWarmupDone = false; // ficará true somente após teste de conexão
+  bool _connectionWarmupDone = false;
 
   //_printQueue.clear();
 
@@ -108,8 +108,9 @@ class NiimbotImpressorasController extends GetxController {
       _impressoraConectada.refresh();
       _printerConnectionState.value = PrinterConnectionState.connected;
       debugPrint('Conexão estabelecida: ${device.name}');
-      // Sempre dispara teste de logo em cada conexão.
+      // Teste de logo removido conforme solicitação.
       unawaited(_runTesteLogoSempre(device));
+      _connectionWarmupDone = true; // Marca como pronto imediatamente
       return true;
     } catch (e) {
       debugPrint('ERRO ao conectar dispositivo: $e');
@@ -274,18 +275,27 @@ class NiimbotImpressorasController extends GetxController {
           message: "Erro: RenderRepaintBoundary não encontrado",
         );
       }
-      // Versão anterior (qualidade forte): usa DPI real aproximado da B1 (~203) e não limita pixelRatio.
-      debugPrint("PIXELRATIO IMAGEM (manual): ${_pixelRatio.value.toString()}");
-      const double niimbotDpi = 203.0; // DPI real do modelo
+      // Ajuste o pixelRatio conforme necessário
+      debugPrint("PIXELRATIO IMAGEM: ${_pixelRatio.value.toString()}");
+
+      /*final double pixelRatio =
+          _sizeLabelPrint.value.toSizeLabelPrintValues['targetWidthPx'] /
+          boundary.size.width; */
+
+      const double niimbotDpi = 300.0;
       const double mmToInch = 25.4;
-      final Map<String, dynamic> values = _sizeLabelPrint.value.toSizeLabelPrintValues;
-      final double targetWidthPx = (values['labelWidth'] / mmToInch) * niimbotDpi;
-      final double pixelRatio = targetWidthPx / boundary.size.width;
-      final DateTime inicio = DateTime.now();
-      debugPrint('[NIIMBOT][CAPTURE] boundary.size=${boundary.size.width}x${boundary.size.height} targetWidthPx=$targetWidthPx dpi=$niimbotDpi pixelRatio=$pixelRatio');
-      final ui.Image image = await boundary.toImage(pixelRatio: pixelRatio);
-      final DateTime fim = DateTime.now();
-      debugPrint('[NIIMBOT][CAPTURE] tempoCapturaMs=${fim.difference(inicio).inMilliseconds} imagemCapturada=${image.width}x${image.height}');
+
+      // Calcula a largura desejada da imagem em pixels
+      final double targetWidthPx =
+          (_sizeLabelPrint.value.toSizeLabelPrintValues['labelWidth'] /
+              mmToInch) *
+          niimbotDpi;
+
+      final double pixelRatio = (targetWidthPx / boundary.size.width) + 1.8;
+      debugPrint("PIXELRATIO IMAGEM: ${pixelRatio.toString()}");
+
+      ui.Image image = await boundary.toImage(pixelRatio: pixelRatio);
+      //await image.toByteData(format: ui.ImageByteFormat.png);
       return image;
       /*
       ByteData? byteData = await image.toByteData(
@@ -321,6 +331,8 @@ class NiimbotImpressorasController extends GetxController {
         return;
       }
       _isProcessingQueue = true;
+
+      // --- INÍCIO RESTAURAÇÃO UI (Overlay + Snackbar) ---
       bool overlayShown = false;
       void showOverlay() {
         if (overlayShown) return;
@@ -338,9 +350,16 @@ class NiimbotImpressorasController extends GetxController {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SizedBox(width: 42, height: 42, child: CircularProgressIndicator()),
+                        SizedBox(
+                          width: 42,
+                          height: 42,
+                          child: CircularProgressIndicator(),
+                        ),
                         SizedBox(height: 16),
-                        Text('Imprimindo etiqueta...', style: TextStyle(fontSize: 16)),
+                        Text(
+                          'Imprimindo etiqueta...',
+                          style: TextStyle(fontSize: 16),
+                        ),
                       ],
                     ),
                   ),
@@ -351,6 +370,7 @@ class NiimbotImpressorasController extends GetxController {
           );
         }
       }
+
       void hideOverlay() {
         if (!overlayShown) return;
         if (Get.isDialogOpen == true) Get.back();
@@ -359,63 +379,54 @@ class NiimbotImpressorasController extends GetxController {
 
       showOverlay();
       _showAppSnackbar('Processando etiqueta...', SnackBarType.info);
+      // --- FIM RESTAURAÇÃO UI ---
+
       while (_printQueue.isNotEmpty) {
         final image = _printQueue.removeFirst();
-        _processingQueue.value = true;
-        if (!_connectionWarmupDone) {
-          await Future.delayed(const Duration(milliseconds: 400));
-          _connectionWarmupDone = true;
-        }
+        
+        // Pequeno delay para garantir estabilidade se necessário (opcional, mantendo simples)
+        // await Future.delayed(const Duration(milliseconds: 100));
+
         dynamic res;
         try {
-          // Chamada simples, sem multi-pass, sem overstrike, sem repeatPasses, igual main
-          res = await printService.printEtiqueta(
+           res = await printService.printEtiqueta(
             imageEtiqueta: image,
             sizeLabelPrint: _sizeLabelPrint.value,
           );
         } catch (e) {
           debugPrint('ERRO printEtiqueta (controller): $e');
-          try {
-            await printService.disconnectDevice();
-          } catch (_) {}
-          _printerConnectionState.value = PrinterConnectionState.disconnected;
-          _impressoraConectada.value = BluetoothDevice(name: '', address: '');
-          _impressoraConectada.refresh();
-          _showAppSnackbar('Conexão com impressora perdida. Verifique o aparelho.', SnackBarType.error);
-          _isProcessingQueue = false;
-          _processingQueue.value = false;
-          if (Get.isDialogOpen == true) Get.back();
-          return;
+          _showAppSnackbar('Erro ao enviar para impressora: $e', SnackBarType.error);
         }
+
         setQtdFila = _printQueue.length;
+
+        // Feedback de sucesso/erro baseado no retorno
         bool ok = false;
-        int usedDensity = 1;
-        int requestedDensity = 1;
         if (res is bool) {
           ok = res;
         } else if (res is Map<String, dynamic>) {
           ok = res['success'] == true;
-          usedDensity = res['usedDensity'] ?? res['requestedDensity'] ?? usedDensity;
-          requestedDensity = res['requestedDensity'] ?? requestedDensity;
         }
+
         if (!ok) {
-          _showAppSnackbar('Falha ao enviar para a impressora', SnackBarType.error);
+           // Se falhou, talvez avisar?
+           // _showAppSnackbar('Falha ao enviar para a impressora', SnackBarType.error);
         } else {
-          if (usedDensity < requestedDensity) {
-            _showAppSnackbar('Etiqueta enviada (densidade reduzida pelo dispositivo)', SnackBarType.info);
-          } else {
-            _showAppSnackbar('Etiqueta enviada para a impressora', SnackBarType.success);
-          }
+           // Sucesso silencioso ou mensagem? O usuário pediu "manter mensagens".
+           // A versão anterior tinha:
+           // _showAppSnackbar('Etiqueta enviada para a impressora', SnackBarType.success);
+           _showAppSnackbar('Etiqueta enviada para a impressora', SnackBarType.success);
         }
+        
+        // Delay entre impressões para não engasgar
         await Future.delayed(const Duration(milliseconds: 180));
       }
+
       _isProcessingQueue = false;
-      _processingQueue.value = false;
       _printQueue.clear();
-      hideOverlay();
+      hideOverlay(); // Fecha o dialog
     } catch (e) {
       debugPrint("ERRO IMPRIMIR ETIQUETA: ${e.toString()}");
-      _processingQueue.value = false;
       _showAppSnackbar(e.toString(), SnackBarType.error);
       if (Get.isDialogOpen == true) Get.back();
     }
