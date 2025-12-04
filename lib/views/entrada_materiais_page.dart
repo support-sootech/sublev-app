@@ -189,7 +189,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
       setState(() => _loading = true);
       if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap edição: iniciando carga completa combos+registro');
       try {
-        await _ctrl.loadCombos();
+        await _ctrl.forceReloadCombos();
         await _loadExisting(widget.materialId!);
         if (kDebugMode) debugPrint('[EntradaMateriaisPage] Bootstrap edição concluído (tudo carregado)');
       } catch (e) {
@@ -211,7 +211,7 @@ class _EntradaMateriaisPageState extends State<EntradaMateriaisPage> {
         _ctrl.condicaoEmbalagemSel.value = null;
         _ctrl.unidadeSel.value = null;
         _ctrl.modoConservacaoSel.value = null;
-        await _ctrl.loadCombos();
+        await _ctrl.forceReloadCombos();
         // Seleciona unidade padrão 'kg' quando disponível após carga.
         try {
           final kg = _ctrl.unidades.firstWhere(
