@@ -106,6 +106,7 @@ class EtiquetaWidget extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 22,
                             fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         Column(
@@ -114,7 +115,10 @@ class EtiquetaWidget extends StatelessWidget {
                           children: [
                             Text(
                               "${etiquetaModel.numEtiqueta}",
-                              style: TextStyle(fontSize: 16),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             QrImageView(
                               data: etiquetaModel.numEtiqueta.toString(),

@@ -186,7 +186,7 @@ class PrintBluetoothThermalService {
           width: 9,
           styles: PosStyles(
             align: PosAlign.left,
-            bold: false,
+            bold: true,
             fontType: PosFontType.fontB,
           ),
         ),
@@ -195,7 +195,7 @@ class PrintBluetoothThermalService {
           width: 3,
           styles: PosStyles(
             align: PosAlign.right,
-            bold: false,
+            bold: true,
             fontType: PosFontType.fontB,
           ),
         ),
@@ -203,18 +203,28 @@ class PrintBluetoothThermalService {
 
       bytes += generator.text(
         '${etiqueta.dsModoConservacao}',
-        styles: PosStyles(fontType: PosFontType.fontB),
+        styles: PosStyles(
+          fontType: PosFontType.fontB,
+          bold: true,
+        ),
       );
 
       bytes += generator.text(
         'Resp: ${etiqueta.nmPessoaAbreviado}',
-        styles: PosStyles(fontType: PosFontType.fontB),
+        styles: PosStyles(
+          fontType: PosFontType.fontB,
+          bold: true,
+        ),
       );
       //bytes += generator.feed(0);
 
       bytes += generator.text(
         '${etiqueta.idEtiquetas}',
-        styles: PosStyles(fontType: PosFontType.fontB, align: PosAlign.center),
+        styles: PosStyles(
+          fontType: PosFontType.fontB,
+          align: PosAlign.center,
+          bold: true,
+        ),
       );
 
       // QR Code - verificação e limpeza da string

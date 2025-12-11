@@ -181,6 +181,7 @@ class Etiqueta50x50Widget extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 22,
                             fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         Column(
