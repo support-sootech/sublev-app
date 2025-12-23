@@ -198,7 +198,7 @@ class _CatalogoAvulsoPageState extends State<CatalogoAvulsoPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Validade: +$vencLabel após geração',
+                                'Validade: $vencLabel',
                                 style: const TextStyle(fontSize: 13),
                               ),
                               const SizedBox(height: 2),
