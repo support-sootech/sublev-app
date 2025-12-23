@@ -60,3 +60,8 @@ android/local.properties
 .env.development
 .env.production
 cookies.txt
+
+# Signing files
+*.jks
+*.keystore
+key.properties
