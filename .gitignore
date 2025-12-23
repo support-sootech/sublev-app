@@ -65,3 +65,8 @@ cookies.txt
 *.jks
 *.keystore
 key.properties
+
+# Android build/cache
+android/.gradle/
+android/app/build/
+.gradle/
