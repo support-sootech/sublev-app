@@ -6,6 +6,9 @@ import 'package:ootech/views/etiquetas_page.dart';
 import 'package:ootech/views/fracionar_page.dart';
 import 'package:ootech/views/materiais_list_page.dart';
 import 'package:ootech/views/relatorio_recebimento_page.dart';
+import 'package:ootech/views/tipos_pessoas_page.dart';
+
+import 'package:ootech/views/catalogo_avulso_page.dart';
 
 class MenuData {
   Future<List<MenuModel>> loadMenu() async {
@@ -18,6 +21,7 @@ class MenuData {
         icon: Icons.save_alt,
       ),
     );
+
     menu.add(
       MenuModel(
         id: 2,
@@ -40,7 +44,7 @@ class MenuData {
       MenuModel(
         id: 4,
         title: "Etiqueta avulsa",
-        page: const EtiquetaAvulsaPage(),
+        page: const CatalogoAvulsoPage(),
         icon: Icons.label_outline,
       ),
     );
@@ -61,6 +65,14 @@ class MenuData {
         icon: Icons.assignment_outlined,
       ),
     );
+
+    // Removido:
+    // MenuModel(
+    //   id: 7,
+    //   title: "Tipos Pessoas",
+    //   page: const TiposPessoasPage(),
+    //   icon: Icons.people_outline,
+    // ),
 
     return menu;
   }

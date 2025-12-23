@@ -26,5 +26,5 @@ class DioCustom {
 }
 
 
-// Ambiente temporário (local)
+// Ambiente padrão (produção)
 const _baseUrl = "https://ootech.com.br";

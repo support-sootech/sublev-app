@@ -5,6 +5,7 @@ class EtiquetaAvulsaRequest {
   final int idUnidadesMedidas;
   final int idModoConservacao;
   final int quantidade;
+  final bool salvarCatalogo;
 
   EtiquetaAvulsaRequest({
     required this.descricao,
@@ -13,6 +14,7 @@ class EtiquetaAvulsaRequest {
     required this.idUnidadesMedidas,
     required this.idModoConservacao,
     required this.quantidade,
+    this.salvarCatalogo = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -31,6 +33,7 @@ class EtiquetaAvulsaRequest {
       'id_unidades_medidas': idUnidadesMedidas,
       'id_modo_conservacao': idModoConservacao,
       'quantidade': quantidade,
+      'salvar_catalogo': salvarCatalogo,
     };
   }
 }

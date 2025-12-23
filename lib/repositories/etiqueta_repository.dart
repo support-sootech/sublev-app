@@ -167,9 +167,11 @@ class EtiquetaRepository {
       throw CustomException(message: "Você está sem conexão a internet!");
     }
     try {
+      final json = request.toJson();
+      debugPrint("ENVIANDO API: $json");
       final resp = await service.dio.post(
         '/app-etiqueta-avulsa',
-        data: request.toJson(),
+        data: json,
       );
       if (resp.statusCode == 200 && resp.data is Map) {
         final map = resp.data as Map<String, dynamic>;
