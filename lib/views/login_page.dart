@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:ootech/controller/user_controller.dart';
+import 'package:ootech/services/debug_log_service.dart';
 import 'package:ootech/views/home_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -15,6 +17,41 @@ class _LoginPageState extends State<LoginPage> {
   var userCpfController = TextEditingController();
   var userSenhaController = TextEditingController();
   final UserController userController = UserController();
+
+  void showDebugLogs() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Debug Logs (Production)"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              DebugLogService().getLogs().isEmpty 
+                ? "Nenhum log capturado ainda." 
+                : DebugLogService().getLogs(),
+              style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: DebugLogService().getLogs()));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Logs copiados!")),
+              );
+            },
+            child: Text("Copiar"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Fechar"),
+          ),
+        ],
+      ),
+    );
+  }
 
   void login() async {
     if (formKeyLogin.currentState?.validate() != null) {
@@ -63,7 +100,10 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset("assets/logo.png"),
+            GestureDetector(
+              onLongPress: () => showDebugLogs(),
+              child: Image.asset("assets/logo.png"),
+            ),
 
             Obx(
               () => userController.getState.value == UserState.loading
