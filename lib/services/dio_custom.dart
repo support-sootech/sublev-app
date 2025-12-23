@@ -10,9 +10,9 @@ class DioCustom {
   DioCustom() {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 40),
-      receiveTimeout: const Duration(seconds: 40),
-      sendTimeout: const Duration(seconds: 40),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 30),
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'SubLev-App/1.0.6',

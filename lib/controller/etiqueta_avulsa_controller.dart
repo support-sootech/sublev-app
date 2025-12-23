@@ -52,16 +52,8 @@ class EtiquetaAvulsaController extends GetxController {
   }
 
   Future<AvulsaResponse> criar(EtiquetaAvulsaRequest request) async {
-    try {
-      // Prioriza o endpoint oficial de etiquetas avulsas (garante tipo_etiqueta = "A")
-      return await repository.criarEtiquetaAvulsa(request);
-    } catch (e) {
-      try {
-        // Fallback legado para ambientes antigos (usa fracionamento padrão)
-        return await repository.criarEtiquetaAvulsaComFracionamento(request);
-      } catch (_) {
-        throw CustomException(message: e.toString());
-      }
-    }
+    // Agora usa exclusivamente o endpoint oficial que garante sincronia com o catálogo.
+    // O fallback foi removido para evitar inserções incompletas (sem catálogo) em caso de erro.
+    return await repository.criarEtiquetaAvulsa(request);
   }
 }

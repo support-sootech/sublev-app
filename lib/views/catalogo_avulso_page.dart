@@ -20,10 +20,11 @@ class _CatalogoAvulsoPageState extends State<CatalogoAvulsoPage> {
   @override
   void initState() {
     super.initState();
-    // Garante que o filtro esteja limpo ao entrar
+    // Garante que o filtro esteja limpo e a lista recarregada ao entrar
     WidgetsBinding.instance.addPostFrameCallback((_) {
         _searchCtrl.clear();
-        _ctrl.filtroBusca.value = ''; // Dispara listener que recarrega lista
+        _ctrl.filtroBusca.value = ''; 
+        _ctrl.carregar(); // Força o refresh mesmo se o filtro já estivesse vazio
     });
   }
 
