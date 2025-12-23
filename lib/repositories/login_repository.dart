@@ -23,7 +23,7 @@ class LoginRepository {
     debugPrint('REPOSITORY LOGIN: ${cpf} - ${senha}');
 
     try {
-      final endPoint = "/app-login";
+      final endPoint = "app-login";
       final response = await service.dio.post(
         endPoint,
         data: {'cpf': cpf, 'senha': senha},

@@ -7,7 +7,7 @@ class CatalogoAvulsoRepository {
 
   Future<Map<String, dynamic>> listar(String busca) async {
     try {
-      final response = await _dio.get('/app-catalogo-avulso', queryParameters: {
+      final response = await _dio.get("app-catalogo-avulso", queryParameters: {
         'busca': busca,
       });
       return response.data;
@@ -24,7 +24,7 @@ class CatalogoAvulsoRepository {
 
   Future<Map<String, dynamic>> salvar(Map<String, dynamic> data) async {
     try {
-      final response = await _dio.post('/app-catalogo-avulso-save', data: data);
+      final response = await _dio.post("app-catalogo-avulso-save", data: data);
       return response.data;
     } on DioException catch (e) {
       if (e.response != null) {
@@ -36,7 +36,7 @@ class CatalogoAvulsoRepository {
 
   Future<Map<String, dynamic>> toggleFavorito(int id, bool isFavorito) async {
     try {
-      final response = await _dio.post('/app-catalogo-avulso-favorito', data: {
+      final response = await _dio.post("app-catalogo-avulso-favorito", data: {
         'id': id,
         'favorito': isFavorito
       });
@@ -49,7 +49,7 @@ class CatalogoAvulsoRepository {
   
   Future<Map<String, dynamic>> excluir(int id) async {
     try {
-      final response = await _dio.post('/app-catalogo-avulso-del', data: {'id': id});
+      final response = await _dio.post("app-catalogo-avulso-del", data: {'id': id});
       return response.data;
     } on DioException catch (e) {
       if (e.response != null) return e.response!.data;

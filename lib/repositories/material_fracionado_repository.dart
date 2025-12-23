@@ -25,7 +25,7 @@ class MaterialFracionadoRepository {
         MaterialFracionadoVencimentoModel();
 
     try {
-      final endPoint = "/app-materiais-fracionados-vencimento";
+      final endPoint = "app-materiais-fracionados-vencimento";
       final response = await service.dio.get(endPoint);
 
       if (response.data['success'] == true) {
@@ -56,7 +56,7 @@ class MaterialFracionadoRepository {
         throw CustomException(message: "Você está sem conexão a internet!");
       }
 
-      final endPoint = "/app-materiais-fracionados-baixa";
+      final endPoint = "app-materiais-fracionados-baixa";
       final response = await service.dio.put(
         endPoint,
         data: {
@@ -89,7 +89,7 @@ class MaterialFracionadoRepository {
     List<EtiquetaModel> arr = [];
 
     try {
-      final endPoint = "/app-materiais-fracionados-vencimento-json/$filtro";
+      final endPoint = "app-materiais-fracionados-vencimento-json/$filtro";
       final response = await service.dio.get(endPoint);
 
       if (response.data['success'] == true) {

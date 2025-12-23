@@ -90,9 +90,9 @@ class MateriaisRepository {
     try {
       Response resp;
       try {
-        resp = await service.dio.get('/app-materiais-del/$id');
+        resp = await service.dio.get("app-materiais-del/$id");
       } on DioException {
-        resp = await service.dio.get('/materiais-del/$id');
+        resp = await service.dio.get("materiais-del/$id");
       }
       if (resp.statusCode == 200 && resp.data is Map) {
         final data = resp.data as Map;

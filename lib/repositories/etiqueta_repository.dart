@@ -40,7 +40,7 @@ class EtiquetaRepository {
     }
     EtiquetaModel etiquetaModel = EtiquetaModel();
     try {
-      final endPoint = "/app-etiqueta-info/$codigo";
+      final endPoint = "app-etiqueta-info/$codigo";
       final response = await service.dio.get(endPoint);
       debugPrint("ETIQUETA: ${response.data.toString()}");
 
@@ -66,7 +66,7 @@ class EtiquetaRepository {
     }
     List<EtiquetaModel> etiquetaModel = [];
     try {
-      final endPoint = "/app-etiquetas";
+      final endPoint = "app-etiquetas";
       final response = await service.dio.get(endPoint);
 
       if (response.data['success'] == true && response.statusCode == 200) {

@@ -15,7 +15,7 @@ class TipoPessoaRepository {
     if (!connected) return <TipoPessoaModel>[];
 
     try {
-      final resp = await service.dio.get('/app-tipos-pessoas');
+      final resp = await service.dio.get("app-tipos-pessoas");
       if (resp.statusCode == 200 && resp.data is Map) {
         final data = resp.data as Map;
         if (data['success'] == true) {
@@ -43,7 +43,7 @@ class TipoPessoaRepository {
     }
 
     try {
-      final resp = await service.dio.get('/tipos-pessoas-edit/$id');
+      final resp = await service.dio.get("tipos-pessoas-edit/$id");
       if (resp.statusCode == 200 && resp.data is Map) {
         final data = resp.data as Map;
         if (data['success'] == true && data['data'] != null) {
@@ -71,7 +71,7 @@ class TipoPessoaRepository {
         if (tipoPessoa.id != null) 'id_tipos_pessoas': tipoPessoa.id,
       };
 
-      final resp = await service.dio.post('/app-tipos-pessoas-save', data: payload);
+      final resp = await service.dio.post("app-tipos-pessoas-save", data: payload);
       if (resp.statusCode == 200 && resp.data is Map) {
         final data = resp.data as Map;
         if (data['success'] == true) {
@@ -97,7 +97,7 @@ class TipoPessoaRepository {
     }
 
     try {
-      final resp = await service.dio.get('/app-tipos-pessoas-del/$id');
+      final resp = await service.dio.get("app-tipos-pessoas-del/$id");
       if (resp.statusCode == 200 && resp.data is Map) {
         final data = resp.data as Map;
         if (data['success'] == true) {

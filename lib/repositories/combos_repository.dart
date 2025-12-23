@@ -94,7 +94,7 @@ class CombosRepository {
     if (kDebugMode) debugPrint('[COMBOS-REPO] carregarPessoaPorId id=$id');
     try {
       final resp =
-          await service.dio.get('/fornecedores-fabricantes-edit/$id');
+          await service.dio.get("fornecedores-fabricantes-edit/$id");
       if (resp.statusCode == 200 &&
           resp.data is Map &&
           resp.data['success'] == true) {
@@ -118,7 +118,7 @@ class CombosRepository {
     if (kDebugMode) debugPrint('[COMBOS-REPO] carregarPessoaDetalhes id=$id');
     try {
       final resp =
-          await service.dio.get('/fornecedores-fabricantes-edit/$id');
+          await service.dio.get("fornecedores-fabricantes-edit/$id");
       if (resp.statusCode == 200 &&
           resp.data is Map &&
           resp.data['success'] == true) {

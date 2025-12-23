@@ -23,7 +23,7 @@ class MaterialRepository {
     }
     List<MaterialModel> arr = [];
     try {
-      final endPoint = "/app-materiais-info/$filtro";
+      final endPoint = "app-materiais-info/$filtro";
       final response = await service.dio.get(endPoint);
 
       if (response.data['success'] == true) {
@@ -52,7 +52,7 @@ class MaterialRepository {
     }
     List<EtiquetaModel> arr = [];
     try {
-      final endPoint = "/app-materiais-fracionar";
+      final endPoint = "app-materiais-fracionar";
       final response = await service.dio.post(
         endPoint,
         data: {
@@ -83,7 +83,7 @@ class MaterialRepository {
       throw CustomException(message: "Você está sem conexão a internet!");
     }
     try {
-      final endPoint = "/app-materiais-fracionados-vencimento";
+      final endPoint = "app-materiais-fracionados-vencimento";
       final response = await service.dio.get(endPoint);
       if (response.data['success'] == true) {
         return MaterialVencimentoCount.fromJson(response.data['data']);
@@ -103,7 +103,7 @@ class MaterialRepository {
       throw CustomException(message: "Você está sem conexão a internet!");
     }
     try {
-      final endPoint = "/app-materiais-fracionados-vencimento-json/$acaoBtn"; // ex: btn_vencem_semana
+      final endPoint = "app-materiais-fracionados-vencimento-json/$acaoBtn"; // ex: btn_vencem_semana
       final response = await service.dio.get(endPoint);
       if (response.data['success'] == true) {
         final data = response.data['data'] as List<dynamic>;

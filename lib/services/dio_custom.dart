@@ -5,26 +5,33 @@ import 'package:dio/io.dart';
 import 'package:ootech/services/dio_interceptor.dart';
 
 class DioCustom {
-  final _dio = Dio();
+  late final Dio _dio;
 
   DioCustom() {
-    (_dio.httpClientAdapter as DefaultHttpClientAdapter).onHttpClientCreate =
-        (HttpClient client) {
-          client.badCertificateCallback =
-              (X509Certificate cert, String host, int port) => true;
-          return client;
-        };
-    _dio.options.baseUrl = _baseUrl;
-    // Timeouts mais permissivos para produção
-    _dio.options.connectTimeout = const Duration(seconds: 30);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
-    _dio.options.sendTimeout = const Duration(seconds: 30);
+    _dio = Dio(BaseOptions(
+      baseUrl: _baseUrl,
+      connectTimeout: const Duration(seconds: 40),
+      receiveTimeout: const Duration(seconds: 40),
+      sendTimeout: const Duration(seconds: 40),
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'SubLev-App/1.0.6',
+      },
+    ));
+
+    _dio.httpClientAdapter = IOHttpClientAdapter(
+      onHttpClientCreate: (HttpClient client) {
+        client.badCertificateCallback =
+            (X509Certificate cert, String host, int port) => true;
+        return client;
+      },
+    );
+
     _dio.interceptors.add(DioInterceptor());
   }
 
   Dio get dio => _dio;
 }
 
-
-// Ambiente padrão (produção)
-const _baseUrl = "https://ootech.com.br";
+// Ambiente padrão (produção) com trailing slash
+const _baseUrl = "https://www.ootech.com.br/";
