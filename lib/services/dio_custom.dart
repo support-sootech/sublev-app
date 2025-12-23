@@ -15,10 +15,10 @@ class DioCustom {
           return client;
         };
     _dio.options.baseUrl = _baseUrl;
-    // Timeouts para evitar travas longas em cold start (reduzidos de padrões infinitos)
-    _dio.options.connectTimeout = const Duration(seconds: 8);
-    _dio.options.receiveTimeout = const Duration(seconds: 12);
-    _dio.options.sendTimeout = const Duration(seconds: 12);
+    // Timeouts mais permissivos para produção
+    _dio.options.connectTimeout = const Duration(seconds: 30);
+    _dio.options.receiveTimeout = const Duration(seconds: 30);
+    _dio.options.sendTimeout = const Duration(seconds: 30);
     _dio.interceptors.add(DioInterceptor());
   }
 
